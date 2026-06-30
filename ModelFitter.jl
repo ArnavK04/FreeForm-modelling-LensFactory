@@ -124,7 +124,7 @@ function loglikelihood_grad!(κ_vec::M) where M <: ROA
     ll_grad = zeros(length(κ_vec))
     h = 1e-5
 
-    # 5. Parallel finite differences for likelihood
+
     Threads.@threads for i in eachindex(κ_vec)
         buf = copy(κ_vec)
         copyto!(buf, κ_vec)   # reset buffer
