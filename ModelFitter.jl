@@ -20,21 +20,21 @@ function neg_logpost_MEM(θ_vec::M) where M <: ROA
    this is equivalent to minimising wrt κ.
    """
    global model, param_ref, gridx, gridy, prior_kappa, reg_factor
-   println("starting logpost calc...")
+   #println("starting logpost calc...")
    κ_vec = exp.(θ_vec)
 
    κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
    t0 = time()
    lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy)
    t1 = time()
-   print("lens init took: ", t1-t0, " s, ")
+   #print("lens init took: ", t1-t0, " s, ")
    lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
    t2 = time()
-   print("log-prior calc took: ", t2-t1, "  s, ")
+   #print("log-prior calc took: ", t2-t1, "  s, ")
    ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref)
    t3 = time()
-   println("log-likelihood calc took: ", t3-t2, "  s, ")
-   println("logpost calc done.")
+   #println("log-likelihood calc took: ", t3-t2, "  s, ")
+   #println("logpost calc done.")
 
    return lp + ll
 end
@@ -63,21 +63,21 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
     This function combines the gradients of the log-prior and log-likelihood.
     """
     global prior_kappa, reg_factor, gridx, gridy, model, param_ref
-    println("starting logpost grad calc...")
+    #println("starting logpost grad calc...")
     κ_vec = exp.(θ_vec)  # Convert θ_vec back to κ_vec
 
     # Compute gradients of log-prior and log-likelihood
     t0 = time()
     lp_grad = LikelihoodFunctions.logprior_grad!(κ_vec, prior_kappa, reg_factor)
     t1 = time()
-    print("log-prior grad calc took: ", t1-t0, "  s, ")
+    #print("log-prior grad calc took: ", t1-t0, "  s, ")
     ll_grad = LikelihoodFunctions.loglikelihood_grad!(κ_vec, prior_kappa, gridx, gridy, model, param_ref)
     t2 = time()
-    println("log-likelihood grad calc took: ", t2-t1, "  s, ")
+    #println("log-likelihood grad calc took: ", t2-t1, "  s, ")
 
     # Combine the gradients
     grad_vec_θ .= (lp_grad .+ ll_grad) .* κ_vec  # Chain rule: d/dθ = d/dκ * κ
-    println("logpost grad calc done.")
+    #println("logpost grad calc done.")
 end
 
 function give_inversehessian(κ::M, prior_kappa::M, gridx::M, gridy::M, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}) where {M <: ROA}
@@ -173,16 +173,22 @@ function main()
     t0 = time()
     input_file = "../LensFactory-Examples/LensModel/GalaxyLens/MockLens/galaxy_parameter.yaml"
 
-    global param_ref, reg_factor, prior_kappa, model, gridx, gridy
+    global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess
+    seed = nothing
+    pix = nothing
+    sigma = nothing
+    p_flag = 1
+    runnumber = 1
+    prior_from_prev = false
+    reg_factor = 1
 
     model = LensModel.read_input(input_file)
     param_ref = Dict(p.key => p.refer for p in model.parameters)
-    reg_factor = 1
-    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model, param_ref; prior_flag=1)
-    new_guess = prior_kappa
-    prior_from_prev = false
+    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=0.5)
+    println("size of gridx: ", size(gridx))
+    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=p_flag, prior_value=0.5)
 
-    filename = "MEM_fit_result32x32_1_125FOV_reg1_timecheck"
+    filename = "MEM_fit_result4res_125FOV_reg1_pflag$(p_flag)_$(seed)_$(pix)_$(sigma)_$(runnumber)"
 
     # load prior from previous run converged map and refine to a finer grid
     if prior_from_prev
@@ -213,9 +219,9 @@ function main()
         Optim.Options(
             show_trace  = true,
             show_every  = 1,
-            iterations  = 2000,
-            time_limit  = 7200,  # 6 hours
-            g_tol       = 1e-3,
+            #iterations  = 2000,
+            time_limit  = 86400,  # 24 hours
+            g_tol       = 1e-2,
         ),
         #autodiff  = AutoFiniteDiff(),
     )
@@ -260,6 +266,12 @@ function main()
         neg_logpost  = neg_logpost_MEM(vec(θ_map)),
         θ0           = θ0,
         prior_kappa  = prior_kappa,
+        init_guess   = new_guess,
+        seed         = seed,
+        pix          = pix,
+        sigma        = sigma,
+        prior_flag   = p_flag,
+        runnumber    = runnumber,
         reg_factor   = reg_factor,
         minimum_value= Optim.minimum(result),
         iterations   = Optim.iterations(result),

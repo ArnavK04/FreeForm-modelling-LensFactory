@@ -95,10 +95,11 @@ function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <
    ψ_up = ψ
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψ_up = ψ_up + (1/π) * κ[i, j] * definite_integral(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψ_up = ψ_up + (1/π) * κ[i, j] * definite_integral(θx, θy, xc, yc, cell_size)
       end
    end
 
@@ -108,10 +109,11 @@ end
 function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψ .= ψ .+ (1/π) .* κ[i, j] .* definite_integral.(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψ .= ψ .+ (1/π) .* κ[i, j] .* definite_integral.(θx, θy, xc, yc, cell_size)
       end
    end
 
@@ -131,11 +133,13 @@ function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) 
    ψx_up, ψy_up = ψx, ψy
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
+   
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψx_up = ψx_up + (1/π) * κ[i, j] * definite_deriv_x(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψy_up = ψy_up + (1/π) * κ[i, j] * definite_deriv_y(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψx_up = ψx_up + (1/π) * κ[i, j] * definite_deriv_x(θx, θy, xc, yc, cell_size)
+         ψy_up = ψy_up + (1/π) * κ[i, j] * definite_deriv_y(θx, θy, xc, yc, cell_size)
       end
    end
 
@@ -145,11 +149,13 @@ end
 function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
+
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψx .= ψx .+ (1/π) .* κ[i, j] .* definite_deriv_x.(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψy .= ψy .+ (1/π) .* κ[i, j] .* definite_deriv_y.(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψx .= ψx .+ (1/π) .* κ[i, j] .* definite_deriv_x.(θx, θy, xc, yc, cell_size)
+         ψy .= ψy .+ (1/π) .* κ[i, j] .* definite_deriv_y.(θx, θy, xc, yc, cell_size)
       end
    end
 
@@ -169,12 +175,14 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
    ψxx_up, ψyy_up, ψxy_up = ψxx, ψyy, ψxy
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
+
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψxx_up = ψxx_up + (1/π) * κ[i, j] * definite_deriv_xx(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψyy_up = ψyy_up + (1/π) * κ[i, j] * definite_deriv_yy(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψxy_up = ψxy_up + (1/π) * κ[i, j] * definite_deriv_xy(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψxx_up = ψxx_up + (1/π) * κ[i, j] * definite_deriv_xx(θx, θy, xc, yc, cell_size)
+         ψyy_up = ψyy_up + (1/π) * κ[i, j] * definite_deriv_yy(θx, θy, xc, yc, cell_size)
+         ψxy_up = ψxy_up + (1/π) * κ[i, j] * definite_deriv_xy(θx, θy, xc, yc, cell_size)
       end
    end
    return ψxx_up, ψyy_up, ψxy_up
@@ -183,12 +191,14 @@ end
 function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
    
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   cell_size = gridx[2] - gridx[1]
+   
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψxx .= ψxx .+ (1/π) .* κ[i, j] .* definite_deriv_xx.(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψyy .= ψyy .+ (1/π) .* κ[i, j] .* definite_deriv_yy.(θx, θy, xc, yc, gridx[2] - gridx[1])
-         ψxy .= ψxy .+ (1/π) .* κ[i, j] .* definite_deriv_xy.(θx, θy, xc, yc, gridx[2] - gridx[1])
+         ψxx .= ψxx .+ (1/π) .* κ[i, j] .* definite_deriv_xx.(θx, θy, xc, yc, cell_size)
+         ψyy .= ψyy .+ (1/π) .* κ[i, j] .* definite_deriv_yy.(θx, θy, xc, yc, cell_size)
+         ψxy .= ψxy .+ (1/π) .* κ[i, j] .* definite_deriv_xy.(θx, θy, xc, yc, cell_size)
       end
    end
 

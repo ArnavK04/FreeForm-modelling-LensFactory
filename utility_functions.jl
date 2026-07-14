@@ -167,15 +167,18 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
             images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path)
             println(length(images_obs), " Observed images: ", images_obs)
             println(length(images_pred), " Predicted images: ", images_pred)
-            println("------------------------------------------------------")
-            sum_rms += give_sum_rms(images_pred, images_obs)
+            sum_rms_= give_sum_rms(images_pred, images_obs)
+            sum_rms += sum_rms_
             count += length(images_obs)
             kid += 1
+            println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(length(images_obs)), rms = $(sqrt(sum_rms_/length(images_obs)))")
+            println("------------------------------------------------------")
         end
         sid += 1
     end
     
     return sqrt(sum_rms / count)
+    println("count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
 end
 
 function give_sum_rms(images_pred, images_obs)
@@ -214,6 +217,8 @@ using Interpolations
 using LinearAlgebra
 using JLD2
 using CairoMakie
+using Random
+using ImageFiltering
 
 function neg_logprior_MEM(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: ROA, N <: ROA, T <: RV}
    """
@@ -241,12 +246,12 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
       t00 = time()
       _, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, lens)
       t01 = time()
-      print("lens quantities calc took: ", t01-t00, "  s, ")
+      #print("lens quantities calc took: ", t01-t00, "  s, ")
 
       # Calculate position likelihood
       pos_chi2 = LensModel.Likelihood.chi2_sourceplane(model, adis, αx_all, αy_all, A_all)
       t02 = time()
-      println("chi2 calc took: ", t02-t01, "  s, ")
+      #println("chi2 calc took: ", t02-t01, "  s, ")
    else
       error("Unsupported sampling scheme: $(model.sampler.scheme)")
    end
@@ -255,24 +260,33 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
 
 end
 
-function construct_prior(model::ModelConfig, param_ref::Dict{Tuple{Symbol,Symbol},Float64}; prior_flag::Int = 1)
-   """
-   Construct the convergence matrix κ based on the model configuration and parameter references.
-   This function is a placeholder and needs to be implemented based on the specific requirements for constructing κ.
-   """
+function construct_prior(model::ModelConfig, prior_flag::Int = 1, prior_value::RV =  0.5, seed::Int = 1234, pix::Int = 2, sigma::RV = 10.0)
+    """
+    Construct the convergence matrix κ based on the model configuration and parameter references.
+    This function is a placeholder and needs to be implemented based on the specific requirements for constructing κ.
+    """
 
-   X_max, Y_max = model.observation.FOV
-   pixel_scale = model.observation.pixel_scale
-   prior_value = param_ref[(:lens1, :prior)]
-   gridx, gridy = Lenses.get_meshgrid(X_max, Y_max, pixel_scale)
+    X_max, Y_max = model.observation.FOV
+    pixel_scale = model.observation.pixel_scale
+    gridx, gridy = Lenses.get_meshgrid(X_max, Y_max, pixel_scale)
 
-   if prior_flag == 1
-      prior_kappa = fill(prior_value, size(gridx))
-   else
-      error("Unsupported prior type: $prior_flag")
-   end
+    if prior_flag == 1
+        prior_kappa = fill(prior_value, size(gridx))
+    elseif prior_flag == 2
+        # uniform random grid, then gaussian filtered 
+        rng = MersenneTwister(seed)
+        random_grid = prior_value .* rand(rng, size(gridx,1), size(gridx,2))
+        prior_kappa = imfilter(random_grid, Kernel.gaussian(pix))
+    elseif prior_flag == 3
+        # gaussian random grid, κ = magnitude at grid centre
+        prior_kappa = prior_value .* exp.(-((gridx .^ 2) + (gridy .^ 2)) ./ (2 * sigma^2))
+    else
+        error("Unsupported prior type: $prior_flag")
+    end
 
-   return prior_kappa, gridx, gridy
+    prior_kappa = clamp.(prior_kappa, 0.1, Inf)
+
+    return prior_kappa, gridx, gridy
 end
 
 function logprior_grad!(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: ROA, N <: ROA, T <: RV}
