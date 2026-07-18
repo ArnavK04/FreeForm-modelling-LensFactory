@@ -20,7 +20,7 @@ function main()
     X_lim = 125.0
     Y_lim = 125.0
     res = 4.0
-    fact = 29
+    fact = round(Int, res/0.14)
 
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
     kappa = Float64.(kappa)  # Ensure kappa is of type Float64
@@ -61,7 +61,7 @@ function main()
         save(ares_path * "mag_finefits.png", fig_)
     end
 
-    name = "MEM_fit_result16x16_1_125FOV_reg1_run2"
+    name = "MEM_fit_result4res_125FOV_reg5_pflag1_0.5_nothing_nothing_nothing_2"
     filename = "../Diagnostics/files/$name" * ".jld2"
     if plot_file_diag || plot_image_flag
         mkpath("../Diagnostics/plots/$(name)_res_$(res)/")
@@ -77,6 +77,9 @@ function main()
     #errors = data["errors"]
     param_ref = Dict(p.key => p.refer for p in model.parameters)
 
+    println("size of κ_map: ", size(κ_map))
+    println("size of prior_kappa: ", size(prior_kappa))
+
     zs = 9
     zd = model.observation.z_d
     cosmo = Cosmology.init_cosmology()      # default cosmo
@@ -86,6 +89,8 @@ function main()
 
     # making the grid
     gridx, gridy = UtilityFunctions.make_gridfrom_model(model)
+    println("size of gridx: ", size(gridx))
+    println("size of gridy: ", size(gridy))
 
     κ_fine, x_fine, y_fine = UtilityFunctions.refine_map(κ_map, gridx, gridy, X_lim, Y_lim, res, order)
     # initialize the lens
@@ -150,9 +155,8 @@ function main()
             println(io, "χ² of predicted image positions: ", data["chi2"])
         end
     end
-    println("RMS of predicted image positions: ", rms)
     
 
 end
 
-main()
+#main()

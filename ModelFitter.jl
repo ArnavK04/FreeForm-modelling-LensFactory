@@ -9,52 +9,53 @@ using LinearAlgebra
 using ProgressMeter
 using FiniteDiff
 using Statistics
+using ArgParse
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
 
 function neg_logpost_MEM(θ_vec::M) where M <: ROA
-   """
-   Returns the negative log-posterior for given log(convergence) matrix.
-   It minimises wrt log(κ) to ensure positivity of κ. Since log is monotonic, 
-   this is equivalent to minimising wrt κ.
-   """
-   global model, param_ref, gridx, gridy, prior_kappa, reg_factor
-   #println("starting logpost calc...")
-   κ_vec = exp.(θ_vec)
+    """
+    Returns the negative log-posterior for given log(convergence) matrix.
+    It minimises wrt log(κ) to ensure positivity of κ. Since log is monotonic, 
+    this is equivalent to minimising wrt κ.
+    """
+    global model, param_ref, gridx, gridy, prior_kappa, reg_factor, full_kernel
+    #println("starting logpost calc...")
+    κ_vec = exp.(θ_vec)
+    println("κ range: ", extrema(κ_vec), "  θ range: ", extrema(θ_vec))
+    κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
+    t0 = time()
+    lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true)  # kernel_flag = true to compute kernel for the lens
+    t1 = time()
+    #print("lens init took: ", t1-t0, " s, ")
+    lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
+    t2 = time()
+    #print("log-prior calc took: ", t2-t1, "  s, ")
+    ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref, full_kernel)
+    t3 = time()
+    #println("log-likelihood calc took: ", t3-t2, "  s, ")
+    #println("logpost calc done.")
 
-   κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
-   t0 = time()
-   lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy)
-   t1 = time()
-   #print("lens init took: ", t1-t0, " s, ")
-   lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
-   t2 = time()
-   #print("log-prior calc took: ", t2-t1, "  s, ")
-   ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref)
-   t3 = time()
-   #println("log-likelihood calc took: ", t3-t2, "  s, ")
-   #println("logpost calc done.")
-
-   return lp + ll
+    return lp + ll
 end
 
 function neg_logpost_MEM_κ(κ_vec::M) where M <: ROA
-   """
-   Returns the negative log-posterior for given convergence matrix.
-   It takes in κ_vec directly, without the log transformation. This function is useful for
-   calculating hessian in the κ space directly.
-   """
-   global model, param_ref, gridx, gridy, prior_kappa, reg_factor
+    """
+    Returns the negative log-posterior for given convergence matrix.
+    It takes in κ_vec directly, without the log transformation. This function is useful for
+    calculating hessian in the κ space directly.
+    """
+    global model, param_ref, gridx, gridy, prior_kappa, reg_factor, full_kernel
+        
+    κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
 
-   κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
+    lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true)
 
-   lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy)
+    lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
+    ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref, full_kernel)
 
-   lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
-   ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref)
-
-   return lp + ll
+    return lp + ll
 end
 
 function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
@@ -62,7 +63,7 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
     Compute the gradient of log-posterior wrt θ in place.
     This function combines the gradients of the log-prior and log-likelihood.
     """
-    global prior_kappa, reg_factor, gridx, gridy, model, param_ref
+    global prior_kappa, reg_factor, gridx, gridy, model, param_ref, full_kernel
     #println("starting logpost grad calc...")
     κ_vec = exp.(θ_vec)  # Convert θ_vec back to κ_vec
 
@@ -70,10 +71,10 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
     t0 = time()
     lp_grad = LikelihoodFunctions.logprior_grad!(κ_vec, prior_kappa, reg_factor)
     t1 = time()
-    #print("log-prior grad calc took: ", t1-t0, "  s, ")
-    ll_grad = LikelihoodFunctions.loglikelihood_grad!(κ_vec, prior_kappa, gridx, gridy, model, param_ref)
+    print("log-prior grad calc took: ", t1-t0, "  s, ")
+    ll_grad = LikelihoodFunctions.loglikelihood_grad!(κ_vec, prior_kappa, gridx, gridy, model, param_ref, full_kernel)
     t2 = time()
-    #println("log-likelihood grad calc took: ", t2-t1, "  s, ")
+    println("log-likelihood grad calc took: ", t2-t1, "  s, ")
 
     # Combine the gradients
     grad_vec_θ .= (lp_grad .+ ll_grad) .* κ_vec  # Chain rule: d/dθ = d/dκ * κ
@@ -134,15 +135,10 @@ function give_inversehessian_fast(κ::M, prior_kappa::M, gridx::M, gridy::M, mod
     κ_vec = vec(κ)
     n = length(κ_vec)
     
-    # 1. Allocate the output matrix
     hessian = zeros(n, n)
     
-    # 2. Create an allocating Hessian cache (Do this once!)
-    # By default, it uses high-accuracy central differences (:hcentral)
     cache = FiniteDiff.HessianCache(κ_vec)
     
-    # 3. Call the highly optimized, non-allocating routine
-    # We pass an anonymous function wrapping your posterior calculation
     FiniteDiff.finite_difference_hessian!(
         hessian, 
         x -> neg_logpost_MEM_κ(x), 
@@ -171,24 +167,81 @@ end
 function main()
 
     t0 = time()
-    input_file = "../LensFactory-Examples/LensModel/GalaxyLens/MockLens/galaxy_parameter.yaml"
 
-    global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess
-    seed = nothing
-    pix = nothing
-    sigma = nothing
-    p_flag = 1
-    runnumber = 1
-    prior_from_prev = false
-    reg_factor = 1
+    global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess, full_kernel
+
+    settings = ArgParseSettings()
+
+    @add_arg_table settings begin
+        "--input_file"
+            help = "Path to the input YAML file containing lens model parameters."
+            arg_type = String
+            default = "../LensFactory-Examples/LensModel/GalaxyLens/MockLens/galaxy_parameter.yaml"
+        "--seed"
+            help = "Random seed for reproducibility."
+            arg_type = Int
+            default = nothing
+        "--pix"
+            help = "size of smoothening kernel for random guess."
+            arg_type = Int
+            default = nothing
+        "--sigma"
+            help = "Sigma value for gaussian guess."
+            arg_type = Float64
+            default = nothing
+        "--g_flag"
+            help = "Prior flag indicating the type of initial guess to use."
+            arg_type = Int
+            default = 1
+        "--prior_from_prev"
+            help = "Boolean flag to indicate if prior should be loaded from previous run."
+            arg_type = Bool
+            default = false
+        "--reg_factor"
+            help = "Regularization factor for the prior."
+            arg_type = Float64
+            default = 1.0
+        "--guess_value"
+            help = "Initial guess value for the convergence map."
+            arg_type = Float64
+            default = 0.5
+        "--runnumber"
+            help = "Run number for this optimization run."
+            arg_type = Int
+            default = 1
+        "--p_value"
+            help = "Prior value used in constructing the prior map."
+            arg_type = Float64
+            default = 0.5
+    end
+
+    args = parse_args(settings)
+
+    seed = args["seed"]
+    input_file = args["input_file"]
+    pix = args["pix"]
+    sigma = args["sigma"]
+    g_flag = args["g_flag"]
+    prior_from_prev = args["prior_from_prev"]
+    reg_factor = args["reg_factor"]
+    guess_value = args["guess_value"]
+    runnumber = args["runnumber"]
+    p_value = args["p_value"]
 
     model = LensModel.read_input(input_file)
     param_ref = Dict(p.key => p.refer for p in model.parameters)
-    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=0.5)
-    println("size of gridx: ", size(gridx))
-    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=p_flag, prior_value=0.5)
 
-    filename = "MEM_fit_result4res_125FOV_reg1_pflag$(p_flag)_$(seed)_$(pix)_$(sigma)_$(runnumber)"
+
+
+    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=p_value)
+    # get full_kernel for the run
+    full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
+
+    println("size of gridx: ", size(gridx))
+    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, prior_value=guess_value)
+
+    filename = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)"
+    filename_fromprev = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)"
 
     # load prior from previous run converged map and refine to a finer grid
     if prior_from_prev
@@ -203,25 +256,43 @@ function main()
 
         #fin_res = res_/2.0
         fin_res = res_
-        new_guess, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
-        prior_kappa, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+        res_factor = Int(fin_res/res_)
+
+        if res_factor != 1
+            println("Refining the prior from previous run by a factor of: ", res_factor)
+            new_guess, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
+            prior_kappa, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+        else
+            println("No refinement needed for the prior from previous run.")
+            new_guess = new_guess_
+            prior_kappa = prior_kappa_
+            gridx = gridx_
+            gridy = gridy_
+        end
         println("loaded prior from previous run and refined to a finer grid with resolution: ", fin_res, " arcsec/pixel")
-    end 
+    end
 
     κ0 = vec(new_guess)
     θ0 = log.(κ0)  # Initial guess in θ space
 
+    # testing grad provided by finitediff module
+    function g!(grad_vec_θ, θ_vec)
+        FiniteDiff.finite_difference_gradient!(grad_vec_θ, neg_logpost_MEM, θ_vec)
+        return grad_vec_θ
+    end
+
     result = optimize(
         neg_logpost_MEM,
         logpost_grad!,
+        #g!,
         θ0,
         Optim.LBFGS(linesearch = LineSearches.HagerZhang()),
         Optim.Options(
             show_trace  = true,
-            show_every  = 1,
-            #iterations  = 2000,
-            time_limit  = 86400,  # 24 hours
-            g_tol       = 1e-2,
+            show_every  = 5,
+            iterations  = 2000,
+            time_limit  = 43200,  # 12 hours
+            g_tol       = 1e-3,
         ),
         #autodiff  = AutoFiniteDiff(),
     )
@@ -239,7 +310,7 @@ function main()
     t_fast = time()
     #errors = give_errormap(hessian_fast)
 
-    # WILL MOVE HESSIAN CALC TO A DIFFEENT FILE ALTOGETHER
+    # WILL MOVE HESSIAN CALC TO A DIFFEENT FILE ALTOGETHER. IT NEEDS PARALLELIZATION.
 
     println("Converged:     ", Optim.converged(result))
     println("Iterations:    ", Optim.iterations(result))
@@ -248,37 +319,65 @@ function main()
     println("Gradient norm: ", result.g_residual)
 
     # final chi2
-    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy)
-    final_chi2 = 2 * LikelihoodFunctions.neg_loglikelihood_MEM(model, final_lens, param_ref)
+    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy, true)            # general diagnostics lens, so no computing kernel here
+    final_chi2 = 2 * LikelihoodFunctions.neg_loglikelihood_MEM(model, final_lens, param_ref, full_kernel)
 
     println("\nFinal -ve log likelihood (approx): ", final_chi2)
     println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
 
-    jldsave("../Diagnostics/files/$(filename).jld2";
-        model_config = model,
-        κ_map        = κ_map,
-        #hessian      = hessian,
-        #hessian_fast = hessian_fast,
-        #errors       = errors,
-        gridx        = gridx,
-        gridy        = gridy,
-        chi2         = final_chi2,
-        neg_logpost  = neg_logpost_MEM(vec(θ_map)),
-        θ0           = θ0,
-        prior_kappa  = prior_kappa,
-        init_guess   = new_guess,
-        seed         = seed,
-        pix          = pix,
-        sigma        = sigma,
-        prior_flag   = p_flag,
-        runnumber    = runnumber,
-        reg_factor   = reg_factor,
-        minimum_value= Optim.minimum(result),
-        iterations   = Optim.iterations(result),
-        time_run     = Optim.time_run(result),
-        stopped_by   = result.stopped_by,
-        converged    = Optim.converged(result)
-    )
+    if !prior_from_prev
+        jldsave("../Diagnostics/files/$(filename).jld2";
+            model_config = model,
+            κ_map        = κ_map,
+            #hessian      = hessian,
+            #hessian_fast = hessian_fast,
+            #errors       = errors,
+            gridx        = gridx,
+            gridy        = gridy,
+            chi2         = final_chi2,
+            neg_logpost  = neg_logpost_MEM(vec(θ_map)),
+            θ0           = θ0,
+            prior_kappa  = prior_kappa,
+            init_guess   = new_guess,
+            seed         = seed,
+            pix          = pix,
+            sigma        = sigma,
+            prior_flag   = g_flag,
+            reg_factor   = reg_factor,
+            minimum_value= Optim.minimum(result),
+            iterations   = Optim.iterations(result),
+            time_run     = Optim.time_run(result),
+            stopped_by   = result.stopped_by,
+            converged    = Optim.converged(result)
+        )
+
+    else 
+        jldsave("../Diagnostics/files/$(filename_fromprev).jld2";
+            model_config = model,
+            κ_map        = κ_map,
+            #hessian      = hessian,
+            #hessian_fast = hessian_fast,
+            #errors       = errors,
+            gridx        = gridx,
+            gridy        = gridy,
+            chi2         = final_chi2,
+            neg_logpost  = neg_logpost_MEM(vec(θ_map)),
+            θ0           = θ0,
+            prior_kappa  = prior_kappa,
+            init_guess   = new_guess,
+            seed         = seed,
+            pix          = pix,
+            sigma        = sigma,
+            prior_flag   = g_flag,
+            reg_factor   = reg_factor,
+            minimum_value= Optim.minimum(result),
+            iterations   = Optim.iterations(result),
+            time_run     = Optim.time_run(result),
+            stopped_by   = result.stopped_by,
+            converged    = Optim.converged(result)
+        )
+    end
+
     t3 = time()
     println("Time taken for optimization: ", t1 - t0, " seconds")
     println("Time taken for Hessian computation: ", t2 - t1, " seconds")
@@ -287,48 +386,21 @@ function main()
     #println("mean difference between hessians: ", mean(abs.(hessian - hessian_fast)))
     println("Total time taken: ", t3 - t0, " seconds")
 
-    """println("printing some diagnostics for the hessian matrix....")
-    # 1. Basic stats
-    println("Condition number:  ", cond(hessian))
-    println("Min eigenvalue:    ", minimum(eigvals(hessian)))
-    println("Max eigenvalue:    ", maximum(eigvals(hessian)))
-    println("Min diagonal:      ", minimum(diag(hessian)))
-    println("Max diagonal:      ", maximum(diag(hessian)))
 
-    # 2. Symmetry — should be ~machine precision
-    println("Symmetry error:    ", maximum(abs.(hessian .- hessian')))
+    """println("printing stats for fast hessian matrix....")
 
-    # 3. Positive definiteness — all eigenvalues > 0?
-    eigs = eigvals(hessian)
-    println("Positive definite: ", all(eigs .> 0))
-    println("N negative eigs:   ", sum(eigs .< 0))
-    println("N near-zero eigs:  ", sum(abs.(eigs) .< 1e-6))
-
-    # 4. Diagonal dominance — rough check of numerical quality
-    diag_dom = all(abs.(diag(hessian)) .>= sum(abs.(hessian), dims=2)[:])
-    println("Diagonally dominant: ", diag_dom)
-
-    println("printing stats for fast hessian matrix....")
-
-    # 1. Basic stats
     println("Condition number:  ", cond(hessian_fast))
     println("Min eigenvalue:    ", minimum(eigvals(hessian_fast)))
     println("Max eigenvalue:    ", maximum(eigvals(hessian_fast)))
     println("Min diagonal:      ", minimum(diag(hessian_fast)))
     println("Max diagonal:      ", maximum(diag(hessian_fast)))
 
-    # 2. Symmetry — should be ~machine precision
     println("Symmetry error:    ", maximum(abs.(hessian_fast .- hessian_fast')))
     
-    # 3. Positive definiteness — all eigenvalues > 0?
     eigs_fast = eigvals(hessian_fast)
     println("Positive definite: ", all(eigs_fast .> 0))
     println("N negative eigs:   ", sum(eigs_fast .< 0))
-    println("N near-zero eigs:  ", sum(abs.(eigs_fast) .< 1e-6))
-
-    # 4. Diagonal dominance — rough check of numerical quality
-    diag_dom_fast = all(abs.(diag(hessian_fast)) .>= sum(abs.(hessian_fast), dims=2)[:])
-    println("Diagonally dominant: ", diag_dom_fast)"""
+    println("N near-zero eigs:  ", sum(abs.(eigs_fast) .< 1e-6))"""
 end
 
 main()

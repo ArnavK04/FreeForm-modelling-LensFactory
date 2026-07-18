@@ -7,7 +7,6 @@ using FITSIO
 using JLD2
 using Interpolations
 using LinearAlgebra
-using JLD2
 using CairoMakie
 using Statistics
 
@@ -215,7 +214,6 @@ using FITSIO
 using JLD2
 using Interpolations
 using LinearAlgebra
-using JLD2
 using CairoMakie
 using Random
 using ImageFiltering
@@ -234,7 +232,7 @@ function neg_logprior_MEM(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: 
 
 end
 
-function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64})
+function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}} = nothing)
    """
    Computes the log-likelihood(-0.5 * χ²) for the convergence matrix κ given the observed data.
    data is a dictionary containing the observed data and its associated uncertainties.
@@ -244,7 +242,7 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
    if model.sampler.scheme == :SourcePlane
       # Calculate deflection at image positions
       t00 = time()
-      _, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, lens)
+      _, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, lens, full_kernel)
       t01 = time()
       #print("lens quantities calc took: ", t01-t00, "  s, ")
 
@@ -260,7 +258,7 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
 
 end
 
-function construct_prior(model::ModelConfig, prior_flag::Int = 1, prior_value::RV =  0.5, seed::Int = 1234, pix::Int = 2, sigma::RV = 10.0)
+function construct_prior(model::ModelConfig; prior_flag::Int = 1, prior_value::RV =  0.5, seed::Int = 1234, pix::Int = 2, sigma::RV = 10.0)
     """
     Construct the convergence matrix κ based on the model configuration and parameter references.
     This function is a placeholder and needs to be implemented based on the specific requirements for constructing κ.
@@ -292,7 +290,7 @@ end
 function logprior_grad!(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: ROA, N <: ROA, T <: RV}
     """
     Compute the gradient of log-prior wrt κ.
-    We have ∂logP/∂κ_{mn} = - reg_factor + 1 + log(κ_{mn}/prior_kappa_{mn})
+    We have ∂logP/∂κ_{mn} = reg_factor * log(κ_{mn}/prior_kappa_{mn})
     """
 
    κ = reshape(κ_vec, size(prior_kappa))  # Reshape κ_vec 
@@ -310,14 +308,13 @@ function logprior_grad!(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: RO
 
 end
 
-function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}) where {M <: ROA, N <: ROA}
+function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where {M <: ROA, N <: ROA}
     """
     Compute the gradient of log-likelihood wrt κ.
     This function uses finite differences to approximate the gradient.
     """
     κ = reshape(κ_vec, size(prior_kappa))  # Reshape κ_vec to match the shape of prior_kappa
-    println("STARTING LOG-LIKELIHOOD GRAD CALC...")
-    f0 = neg_loglikelihood_MEM(model, Main.FreeFormLens.init_FreeFormLens(κ, gridx, gridy), param_ref)
+    f0 = neg_loglikelihood_MEM(model, Main.FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true), param_ref, full_kernel)
         
     ll_grad = zeros(length(κ_vec))
     buf = copy(κ_vec)
@@ -329,13 +326,13 @@ function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, mode
 
         ll_grad[i] = (neg_loglikelihood_MEM(
             model,
-            Main.FreeFormLens.init_FreeFormLens(reshape(buf, size(gridx)), gridx, gridy),
-            param_ref
+            Main.FreeFormLens.init_FreeFormLens(reshape(buf, size(gridx)), gridx, gridy, true),
+            param_ref,
+            full_kernel
         ) - f0) / h_i
 
         buf[i] = κ_vec[i]  # Reset the buffer for the next iteration
     end
-    println("LOG-LIKELIHOOD GRAD CALC DONE.")
     return vec(ll_grad)
 end
 
