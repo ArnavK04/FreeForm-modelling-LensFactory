@@ -6,20 +6,61 @@ using Interpolations
 using CairoMakie
 using FITSIO
 using LinearAlgebra
+using ArgParse
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
 
 function main()
 
-    fits_flag = false
-    plot_file_diag = true
-    plot_image_flag = true
-    plot_image_flag_og = false
+    settings = ArgParseSettings()
 
-    X_lim = 125.0
-    Y_lim = 125.0
-    res = 4.0
+    @add_arg_table settings begin
+        "--name"
+        help = "path to saved model file"
+        arg_type = String
+        default = nothing
+        "--fits_flag"
+	help = "whether to plot fits truth maps"
+	arg_type = Bool
+	default = false
+	"--plot_file_diag"
+	help = "whether to plot run diagnostics"
+	arg_type = Bool
+	default = false
+	"--plot_image_flag"
+	help = "whether to plot each image prediction by the model"
+	arg_type = Bool
+	default = false
+	"--plot_image_flag_og"
+	help = "whether to plot image prediction by the truth"
+	arg_type = Bool
+	default = false
+	"--X_lim"
+	help = "X_lim to plot"
+	arg_type = Float64
+	default = 150.0
+        "--Y_lim"
+        help = "Y_lim to plot"
+        arg_type = Float64
+        default = 150.0
+        "--res"
+        help = "resolutin at which to plot"
+        arg_type = Float64
+        default = 2.0
+    end
+
+    args = parse_args(settings)
+
+    name = args["name"]
+    fits_flag = args["fits_flag"]
+    plot_file_diag = args["plot_file_diag"]
+    plot_image_flag = args["plot_image_flag"]
+    plot_image_flag_og = args["plot_image_flag_og"]
+
+    X_lim = args["X_lim"]
+    Y_lim = args["Y_lim"]
+    res = args["res"]
     fact = round(Int, res/0.14)
 
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
@@ -37,7 +78,7 @@ function main()
     
     if fits_flag
 
-        ares_path = "../Ares_data/$(new_res)/"
+        ares_path = "../Ares_data/$(res)/"
         mkpath(ares_path)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
@@ -61,7 +102,6 @@ function main()
         save(ares_path * "mag_finefits.png", fig_)
     end
 
-    name = "MEM_fit_result4res_125FOV_reg5_pflag1_0.5_nothing_nothing_nothing_2"
     filename = "../Diagnostics/files/$name" * ".jld2"
     if plot_file_diag || plot_image_flag
         mkpath("../Diagnostics/plots/$(name)_res_$(res)/")

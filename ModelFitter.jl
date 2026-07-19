@@ -291,7 +291,7 @@ function main()
             show_trace  = true,
             show_every  = 5,
             iterations  = 2000,
-            time_limit  = 43200,  # 12 hours
+            time_limit  = 57600,  # 16 hours
             g_tol       = 1e-3,
         ),
         #autodiff  = AutoFiniteDiff(),
