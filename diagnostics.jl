@@ -62,12 +62,12 @@ function main()
     Y_lim = args["Y_lim"]
     res = args["res"]
     fact = round(Int, res/0.14)
-
+    println("loading fits data..")
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
     kappa = Float64.(kappa)  # Ensure kappa is of type Float64
     gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
     gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
-
+    println("interpolating...")
     # interpolate to a particular grid
     order = 3  # cubic interpolation
     kappa_finefits, gridx_finefits, gridy_finefits = UtilityFunctions.refine_map(kappa, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
@@ -76,9 +76,9 @@ function main()
     mag_finefits = zeros(size(kappa_finefits)) 
     @. mag_finefits = 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
     
+    ares_path = "../Ares_data/$(res)/"
     if fits_flag
 
-        ares_path = "../Ares_data/$(res)/"
         mkpath(ares_path)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
@@ -199,4 +199,4 @@ function main()
 
 end
 
-#main()
+main()
