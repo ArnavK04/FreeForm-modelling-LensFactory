@@ -114,6 +114,7 @@ function main()
     κ_map = data["κ_map"]
     prior_kappa = data["prior_kappa"]
     reg_factor = data["reg_factor"]
+    init_guess = data["init_guess"]
     #errors = data["errors"]
     param_ref = Dict(p.key => p.refer for p in model.parameters)
 
@@ -133,6 +134,8 @@ function main()
     println("size of gridy: ", size(gridy))
 
     κ_fine, x_fine, y_fine = UtilityFunctions.refine_map(κ_map, gridx, gridy, X_lim, Y_lim, res, order)
+    prior_kappa_fine, _, _ = UtilityFunctions.refine_map(prior_kappa, gridx, gridy, X_lim, Y_lim, res, order)
+    init_guess_fine, _, _ = UtilityFunctions.refine_map(init_guess, gridx, gridy, X_lim, Y_lim, res, order)
     # initialize the lens
     free_lens = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine)
     ares_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits)
@@ -140,6 +143,8 @@ function main()
 
     κ_map .*= adis
     κ_fine .*= adis
+    prior_kappa_fine .*= adis
+    init_guess_fine .*= adis
     #errors .*= adis            # rescaling errors to source redshift 9
 
     if plot_file_diag
@@ -155,6 +160,16 @@ function main()
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = (-1.0, 2.0))
         cb = Colorbar(fig_[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
         save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_kappa_rel_deviation.png", fig_)
+
+        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
+        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine, colormap = :turbo, colorrange = (0, 3.75))
+        cb = Colorbar(fig_[1,2], hm; label = "κ_prior", width = 20)
+        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_prior_kappa_map.png", fig_)
+
+        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
+        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine, colormap = :turbo, colorrange = (0, 3.75))
+        cb = Colorbar(fig_[1,2], hm; label = "κ_init_guess", width = 20)
+        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_init_guess_kappa_map.png", fig_)
 
         """err_fig, err_axes = Lenses.plot_sky(gridx, gridy)
         hm = heatmap!(err_axes, gridx[:,1], gridy[1,:], errors, colormap = :turbo, colorrange = (0, maximum(errors)))
