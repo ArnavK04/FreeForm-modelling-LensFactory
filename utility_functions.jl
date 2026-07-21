@@ -258,7 +258,7 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
 
 end
 
-function construct_prior(model::ModelConfig; prior_flag::Int = 1, prior_value::RV =  0.5, seed::Int = 1234, pix::Int = 2, sigma::RV = 10.0)
+function construct_prior(model::ModelConfig; prior_flag::Int = 1, prior_value::RV =  0.5, seed::Union{Int, Nothing} = 1234, pix::Union{Int, Nothing} = 2, sigma::Union{RV, Nothing} = 10.0)
     """
     Construct the convergence matrix κ based on the model configuration and parameter references.
     This function is a placeholder and needs to be implemented based on the specific requirements for constructing κ.

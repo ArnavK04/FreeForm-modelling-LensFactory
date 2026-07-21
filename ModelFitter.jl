@@ -238,7 +238,7 @@ function main()
     full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
 
     println("size of gridx: ", size(gridx))
-    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, prior_value=guess_value)
+    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
 
     filename = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)"
     filename_fromprev = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)"
@@ -291,8 +291,8 @@ function main()
             show_trace  = true,
             show_every  = 5,
             iterations  = 2000,
-            time_limit  = 57600,  # 16 hours
-            g_tol       = 1e-3,
+            time_limit  = 43200,  # 12 hours
+            g_tol       = 1e-2,
         ),
         #autodiff  = AutoFiniteDiff(),
     )
