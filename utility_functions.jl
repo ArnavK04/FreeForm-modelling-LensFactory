@@ -210,7 +210,7 @@ function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractL
     if qtyname == "magnification"
         fig, axes = Lenses.plot_magnification_map(lens, gridx, gridy, adis, heatmap_kws = (colormap = :inferno, colorrange = (0, 100)))
     elseif qtyname == "kappa"
-        fig, axes = Lenses.plot_surface_density(lens, gridx, gridy, adis, unit=:convergence, heatmap_kws = (colormap = :inferno, colorrange = (0, 6)))
+        fig, axes = Lenses.plot_surface_density(lens, gridx, gridy, adis, unit=:convergence, heatmap_kws = (colormap = :inferno, colorrange = (0, 4)))
     else
         error("Supported names are 'magnification' and 'kappa'.")
     end
@@ -224,9 +224,11 @@ function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractL
             scatter!(axes, makie_points, color=:cyan, markersize=2)
         end
     end
-    save(path * "/$(qtyname)_map_with_images.png", fig)
+    save(path * "$(qtyname)_map_with_images.png", fig)
 
 end
+
+end  # module end
 
 module LikelihoodFunctions
 

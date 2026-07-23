@@ -194,9 +194,9 @@ function main()
         prof_fig, prof_axis = Lenses.plot_magnification_profile(free_lens, x_fine, y_fine, adis)
         save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_magnification_profile.png", prof_fig)
 
-        plot_clusterimages(model, free_lens, "magnification", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
+	UtilityFunctions.plot_clusterimages(model, free_lens, "magnification", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
 
-        plot_clusterimages(model, free_lens, "kappa", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
+        UtilityFunctions.plot_clusterimages(model, free_lens, "kappa", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
 
         println("χ² of predicted image positions: ", data["chi2"])
     end

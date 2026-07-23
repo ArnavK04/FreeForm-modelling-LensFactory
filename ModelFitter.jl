@@ -256,7 +256,7 @@ function main()
 
         #fin_res = res_/2.0
         fin_res = res_
-        res_factor = Int(fin_res/res_)
+        res_factor = round(Int,fin_res/res_)
 
         if res_factor != 1
             println("Refining the prior from previous run by a factor of: ", res_factor)
