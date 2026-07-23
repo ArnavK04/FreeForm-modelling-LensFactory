@@ -10,6 +10,7 @@ using ProgressMeter
 using FiniteDiff
 using Statistics
 using ArgParse
+using ImageFiltering
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
@@ -247,7 +248,7 @@ function main()
     if prior_from_prev
         data = load("../Diagnostics/files/$(filename).jld2")
         prior_kappa_ = data["κ_map"]
-        new_guess_ = data["prior_kappa"]
+        new_guess_ = data["init_guess"]
         gridx_ = data["gridx"]
         gridy_ = data["gridy"]
 
@@ -264,8 +265,9 @@ function main()
             prior_kappa, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
         else
             println("No refinement needed for the prior from previous run.")
-            new_guess = new_guess_
-            prior_kappa = prior_kappa_
+            pix = 2
+            new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
+            prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
             gridx = gridx_
             gridy = gridy_
         end
