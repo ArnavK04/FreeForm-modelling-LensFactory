@@ -214,9 +214,9 @@ function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractL
     Plots the given quantity (e.g., convergence, magnification) on the image plane along with the observed images.
     """
     if qtyname == "magnification"
-        fig, axes = Lenses.plot_magnification_map(lens, gridx, gridy, adis, heatmap_kws = (colormap = :inferno, colorrange = (0, 100)))
+        fig, axes = Lenses.plot_magnification_map(lens, gridx, gridy, adis, heatmap_kws = (colormap = :turbo, colorrange = (0, 100)))
     elseif qtyname == "kappa"
-        fig, axes = Lenses.plot_surface_density(lens, gridx, gridy, adis, unit=:convergence, heatmap_kws = (colormap = :inferno, colorrange = (0, 4)))
+        fig, axes = Lenses.plot_surface_density(lens, gridx, gridy, adis, unit=:convergence, heatmap_kws = (colormap = :turbo, colorrange = (0, 3.75)))
     else
         error("Supported names are 'magnification' and 'kappa'.")
     end
@@ -227,7 +227,7 @@ function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractL
             y = knot.y
             images_obs = [(xi, yi) for (xi, yi) in zip(x, y)]
             makie_points = [Point2f(pt) for pt in images_obs]
-            scatter!(axes, makie_points, color=:cyan, markersize=2)
+            scatter!(axes, makie_points, color=:black, markersize=3)
         end
     end
     save(path * "$(qtyname)_map_with_images.png", fig)
