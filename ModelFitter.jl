@@ -165,6 +165,16 @@ function give_errormap(hessian::M) where M <: ROA
     return errormap
 end
 
+function print_ram_stats(_)
+    """
+    Just prints the RAM usage statistics of the current process and the system.
+    """
+    println("My process peak RSS: ", round(Sys.maxrss()/2^20, digits=1), " MB")
+    println("Node free RAM (all processes): ", round(Sys.free_memory()/2^30, digits=2), " GB", 
+            "  Node total RAM: ", round(Sys.total_memory()/2^30, digits=2), " GB")
+    return false
+end
+
 function main()
 
     t0 = time()
@@ -288,14 +298,19 @@ function main()
         θ0,
         Optim.LBFGS(linesearch = LineSearches.HagerZhang()),
         Optim.Options(
+            store_trace  = true,
             show_trace  = true,
             show_every  = 5,
-            iterations  = 2000,
+            extended_trace = true,
             #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
+            callback = print_ram_stats
         ),
         #autodiff  = AutoFiniteDiff(),
     )
+
+    trace = Optim.trace(result)
+    println("Trace length: ", length(trace))
 
     θ_map = reshape(Optim.minimizer(result), size(gridx))
     κ_map = exp.(θ_map)  # Convert back to κ space
@@ -349,6 +364,7 @@ function main()
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
             converged    = Optim.converged(result)
+            trace        = trace
         )
 
     else 
@@ -375,6 +391,7 @@ function main()
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
             converged    = Optim.converged(result)
+            trace        = trace
         )
     end
 
