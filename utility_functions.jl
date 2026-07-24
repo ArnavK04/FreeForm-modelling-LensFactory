@@ -175,9 +175,8 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
         end
         sid += 1
     end
-    
+    println(" TOTAL STATS - count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
     return sqrt(sum_rms / count)
-    println("count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
 end
 
 function give_sum_rms(images_pred, images_obs, threshold_distance)
