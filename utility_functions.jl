@@ -148,7 +148,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     
 end
 
-function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String) where M <: ROA
+function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String, thres::Float64) where M <: ROA
 
     adis = LensModel.LensModelUtils.adis_current(model, param_ref)
 
@@ -166,11 +166,11 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
             images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path)
             println(length(images_obs), " Observed images: ", images_obs)
             println(length(images_pred), " Predicted images: ", images_pred)
-            sum_rms_= give_sum_rms(images_pred, images_obs)
+            sum_rms_, actual_count_ = give_sum_rms(images_pred, images_obs, thres)
             sum_rms += sum_rms_
-            count += length(images_obs)
+            count += actual_count_
             kid += 1
-            println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(length(images_obs)), rms = $(sqrt(sum_rms_/length(images_obs)))")
+            println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(length(images_obs)), rms = $(sqrt(sum_rms_/actual_count_))")
             println("------------------------------------------------------")
         end
         sid += 1
@@ -180,13 +180,14 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
     println("count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
 end
 
-function give_sum_rms(images_pred, images_obs)
+function give_sum_rms(images_pred, images_obs, threshold_distance)
     """
     Computes rms between predicted and observed image positions. Can handle false predictions as well
     since it matches the pairs first. The arguments are vectors of tuples of (x, y) positions.
     """
 
     sum_rms = 0.0
+    actual_count = 0.0
 
     for image in images_obs
         pred_closest = nothing
@@ -198,9 +199,14 @@ function give_sum_rms(images_pred, images_obs)
                 pred_closest = pred
             end
         end
-        sum_rms += len_closest^2
+        if len_closest <= threshold_distance
+            sum_rms += len_closest^2
+            actual_count += 1
+        else
+            println("Not counting iamge $(image) since closest prediction is too far away: $(pred_closest) with distance $(len_closest)")
+        end
     end
-    return sum_rms
+    return sum_rms, actual_count
 end
 
 function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, qtyname::String, adis::T, gridx::M, gridy::M, path::String) where {T <: RV, M <: ROA}

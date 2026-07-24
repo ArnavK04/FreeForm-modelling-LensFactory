@@ -13,6 +13,8 @@ include("utility_functions.jl")
 
 function main()
 
+    time_start = time()
+
     settings = ArgParseSettings()
 
     @add_arg_table settings begin
@@ -21,25 +23,25 @@ function main()
         arg_type = String
         default = nothing
         "--fits_flag"
-	help = "whether to plot fits truth maps"
-	arg_type = Bool
-	default = false
-	"--plot_file_diag"
-	help = "whether to plot run diagnostics"
-	arg_type = Bool
-	default = false
-	"--plot_image_flag"
-	help = "whether to plot each image prediction by the model"
-	arg_type = Bool
-	default = false
-	"--plot_image_flag_og"
-	help = "whether to plot image prediction by the truth"
-	arg_type = Bool
-	default = false
-	"--X_lim"
-	help = "X_lim to plot"
-	arg_type = Float64
-	default = 150.0
+        help = "whether to plot fits truth maps"
+        arg_type = Bool
+        default = false
+        "--plot_file_diag"
+        help = "whether to plot run diagnostics"
+        arg_type = Bool
+        default = false
+        "--plot_image_flag"
+        help = "whether to plot each image prediction by the model"
+        arg_type = Bool
+        default = false
+        "--plot_image_flag_og"
+        help = "whether to plot image prediction by the truth"
+        arg_type = Bool
+        default = false
+        "--X_lim"
+        help = "X_lim to plot"
+        arg_type = Float64
+        default = 150.0
         "--Y_lim"
         help = "Y_lim to plot"
         arg_type = Float64
@@ -48,6 +50,10 @@ function main()
         help = "resolutin at which to plot"
         arg_type = Float64
         default = 2.0
+        "--thres"
+        help = "threshold distance for image matching"
+        arg_type = Float64
+        default = 1.0
     end
 
     args = parse_args(settings)
@@ -57,10 +63,11 @@ function main()
     plot_file_diag = args["plot_file_diag"]
     plot_image_flag = args["plot_image_flag"]
     plot_image_flag_og = args["plot_image_flag_og"]
-
+    thres = args["thres"]
     X_lim = args["X_lim"]
     Y_lim = args["Y_lim"]
     res = args["res"]
+
     fact = round(Int, res/0.14)
     println("loading fits data..")
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
@@ -203,26 +210,29 @@ function main()
         prof_fig, prof_axis = Lenses.plot_magnification_profile(free_lens, x_fine, y_fine, adis)
         save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_magnification_profile.png", prof_fig)
 
-	UtilityFunctions.plot_clusterimages(model, free_lens, "magnification", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
+	    UtilityFunctions.plot_clusterimages(model, free_lens, "magnification", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
 
         UtilityFunctions.plot_clusterimages(model, free_lens, "kappa", adis, x_fine, y_fine, "../Diagnostics/plots/$(name)_res_$(res)/")
 
         println("χ² of predicted image positions: ", data["chi2"])
     end
-    
+
     if plot_image_flag_og
-        rms = UtilityFunctions.give_image_rmsscatter(model, ares_lens, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, ares_path)
+        rms = UtilityFunctions.give_image_rmsscatter(model, ares_lens, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, ares_path, thres)
         open(ares_path * "rms.txt", "a") do io
-            println(io, "rms of image positions: " * string(rms))
+            println(io, "rms of image positions with threshold = $(thres): " * string(rms))
         end
     elseif plot_image_flag
-        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(name)_res_$(res)/")
+        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(name)_res_$(res)/", thres)
         # save the rms to a text file
         open("../Diagnostics/plots/$(name)_res_$(res)/rms.txt", "a") do io
-            println(io, "rms of image positions: " * string(rms))
+            println(io, "rms of image positions with threshold = $(thres): " * string(rms))
             println(io, "χ² of predicted image positions: ", data["chi2"])
         end
     end
+
+    time_end = time()
+    println("Total time taken: ", time_end - time_start, " seconds.")
     
 
 end

@@ -232,8 +232,6 @@ function main()
     model = LensModel.read_input(input_file)
     param_ref = Dict(p.key => p.refer for p in model.parameters)
 
-
-
     prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=p_value)
     # get full_kernel for the run
     full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
@@ -293,7 +291,7 @@ function main()
             show_trace  = true,
             show_every  = 5,
             iterations  = 2000,
-            time_limit  = 43200,  # 12 hours
+            #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
         ),
         #autodiff  = AutoFiniteDiff(),
