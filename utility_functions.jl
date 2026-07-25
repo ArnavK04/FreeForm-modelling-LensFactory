@@ -142,7 +142,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     βy_model = sum(βy .* μ_obs.^2) / sum(μ_obs.^2)
 
     t3 = time()
-    images = Lenses.get_image(gridqty_tuple, θx, θy, adis, (βx_model, βy_model))
+    images = Lenses.get_image(gridqty_tuple, gridx, gridy, adis, (βx_model, βy_model))
     print("Image prediction calc took: ", time() - t3, " s, ")
 
     if plot_flag
@@ -154,6 +154,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
         outpath = path * "images_sid$(sid)_kid$(kid).png"
         save(outpath, fig)
     end
+    flush(stdout)
     return images
     
 end
@@ -197,6 +198,7 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
             println("------------------------------------------------------")
         end
         sid += 1
+        flush(stdout)
     end
     println(" TOTAL STATS - count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
     return sqrt(sum_rms / count)
@@ -235,6 +237,7 @@ function add_clusterimages(model::LensModel.ModelConfig)
     """
     returns list of makie points for cluster images.
     """
+    makie_points = []
     for src in model.source_config.sources
         for knot in src.knots
             x = knot.x

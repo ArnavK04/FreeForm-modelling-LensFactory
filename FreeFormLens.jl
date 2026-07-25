@@ -3,6 +3,7 @@ module FreeFormLens
 using LensFactory
 using LensFactory.Constants
 using Trapz
+using CairoMakie
 
 # Functions to export
 export potential!
@@ -320,9 +321,7 @@ init_FreeFormLens(κ::ROA, gridx::ROA, gridy::ROA) =
     init_FreeFormLens(_lens_ = :FreeFormLens, κ = κ, gridx = gridx, gridy = gridy, kernel_flag = false)
 
 function Lenses.potential_helper!(ψ::T, lens::init_FreeFormLens, θx::T, θy::T, kernel::Union{Nothing, Vector{NTuple{6, Matrix{Float64}}}} = nothing) where T <: Union{RV, ROA}
-   if lens.kernel_flag     
-      # I have cheated a bit here, so that not many changes are made to get_deflection function.
-      # kid tells which sub-kernel to use for the given image positions. The kernel is a vector of vectors of Ntuples of matrices.
+   if lens.kernel_flag && kernel != nothing
       return potential!(ψ, θx, θy, lens.κ, lens.gridx, lens.gridy, kernel)
    elseif !lens.kernel_flag  && kernel != nothing
       @warn "Kernel is passed but kernel_flag is false. calling original function."
@@ -501,7 +500,7 @@ function Lenses.get_image(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Flo
    return image_position
 end
 
-function get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
+function Lenses.get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
    # Get the jacobian components
    ψxx, ψyy, ψxy = gridqty_tuple[4], gridqty_tuple[5], gridqty_tuple[6]
 
@@ -522,7 +521,7 @@ function get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::F
    return critical_tan, critical_rad   
 end
 
-function get_caustic(lens::AbstractLens, gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
+function Lenses.get_caustic(lens::Lenses.AbstractLens, gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
    # Generate critical curves
    critical_tan, critical_rad = get_critical_curve(gridqty_tuple, θx, θy, adis)
 
@@ -559,7 +558,7 @@ function LensFactory.Lenses.plot_image_plane(lens::Lenses.AbstractLens,gridqty_t
                            image_kws::NamedTuple=(color=:blue, markersize=10, marker=:star5, heatmap=cgrad([:white, :red])),
                            save_plot::Bool=false,
                            plot_name::String="image_plane.png",
-                           resolution::Int64=2)
+                           resolution::Int64=2) where T <: Matrix{<:RV}
 
    if two_panel
       # Initialize empty figure
