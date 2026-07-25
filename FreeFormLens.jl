@@ -359,6 +359,40 @@ end
 
 # new methods for Lenses module - they work with precomputed kernel for freeform lens.
 
+function Lenses.get_potential(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
+   # Check if the input coordinates are of the same size
+   if size(θx) != size(θy)
+      throw(ArgumentError("Input coordinates must be of the same size."))
+   end
+
+   # Promote both only if either is Int64
+   if eltype(θx) === Int64 || eltype(θy) === Int64
+      θx = Float64.(θx)
+      θy = Float64.(θy)
+   end
+
+   # Initialize zero-valued potential array
+   ψ = zero(θx)
+
+   if lens._lens_ == :CompositeLens
+      for component in lens._components_
+         if component._lens_ == :FreeFormLens && kernel != nothing
+            Lenses.potential_helper!(ψ, component, θx, θy, kernel)
+         else
+            Lenses.potential_helper!(ψ, component, θx, θy)
+         end
+      end
+      return ψ
+   else
+      if lens._lens_ == :FreeFormLens && kernel != nothing
+         Lenses.potential_helper!(ψ, lens, θx, θy, kernel)
+      else
+         Lenses.potential_helper!(ψ, lens, θx, θy)
+      end
+      return ψ
+   end
+end
+
 function Lenses.get_deflection(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
    """
    Same except it takes kid as well. So that freefmlens during modelling knows which 
@@ -439,56 +473,13 @@ function Lenses.get_jacobian(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::
    end
 end
 
-function Lenses.get_potential(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
-   # Check if the input coordinates are of the same size
-   if size(θx) != size(θy)
-      throw(ArgumentError("Input coordinates must be of the same size."))
-   end
+# new methods for plotting functions. Helpful in diagnostics, where the image positions and lens are fixed.
+# so no need to calculate the lens quantities again and again. Just use the pre-computed lens quantities.
+# for these functions, only replaced lens argument with the tuple containing pre-computed lens quantities.
 
-   # Promote both only if either is Int64
-   if eltype(θx) === Int64 || eltype(θy) === Int64
-      θx = Float64.(θx)
-      θy = Float64.(θy)
-   end
-
-   # Initialize zero-valued potential array
-   ψ = zero(θx)
-
-   if lens._lens_ == :CompositeLens
-      for component in lens._components_
-         if component._lens_ == :FreeFormLens && kernel != nothing
-            Lenses.potential_helper!(ψ, component, θx, θy, kernel)
-         else
-            Lenses.potential_helper!(ψ, component, θx, θy)
-         end
-      end
-      return ψ
-   else
-      if lens._lens_ == :FreeFormLens && kernel != nothing
-         Lenses.potential_helper!(ψ, lens, θx, θy, kernel)
-      else
-         Lenses.potential_helper!(ψ, lens, θx, θy)
-      end
-      return ψ
-   end
-end
-
-function Lenses.get_magnification_image(lens::Lenses.AbstractLens, θx::T, θy::T, adis::Float64, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
-   # Get the jacobian components
-   ψxx, ψyy, ψxy = Lenses.get_jacobian(lens, θx, θy, kernel)
-
-   # Scale the deformation tensor
-   @. ψxx = adis * ψxx
-   @. ψyy = adis * ψyy
-   @. ψxy = adis * ψxy
-
-   # μ = 1 / det(1 - A)
-   return @. 1.0 / (1.0 + ψxx * ψyy - ψxx - ψyy - ψxy^2)
-end
-
-function Lenses.get_image(lens::Lenses.AbstractLens, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: Matrix{<:RV}
+function Lenses.get_image(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}) where T <: Matrix{<:RV}
    # Get the potential gradient
-   ψx, ψy = Lenses.get_deflection(lens, θx, θy, kernel)
+   ψx, ψy = gridqty_tuple[2], gridqty_tuple[3]
 
    # Get grid for contour
    RXC = ContourFinder.get_contour(θx, θy, β[1] .- θx .+ adis .* ψx, 0.0)
@@ -508,6 +499,225 @@ function Lenses.get_image(lens::Lenses.AbstractLens, θx::T, θy::T, adis::Float
       end
    end
    return image_position
+end
+
+function get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
+   # Get the jacobian components
+   ψxx, ψyy, ψxy = gridqty_tuple[4], gridqty_tuple[5], gridqty_tuple[6]
+
+   # Scale the deformation tensor
+   @. ψxx = adis * ψxx
+   @. ψyy = adis * ψyy
+   @. ψxy = adis * ψxy
+
+   # Convergence and shear components
+   κ  = 0.5 .* (ψxx .+ ψyy)
+   γ1 = 0.5 .* (ψxx .- ψyy)
+   γ2 = ψxy
+
+   # Get the zero eigenvalue contours
+   critical_tan = ContourFinder.get_contour(θx, θy, 1.0 .- κ .- sqrt.(γ1.^2 .+ γ2.^2), 0)
+   critical_rad = ContourFinder.get_contour(θx, θy, 1.0 .- κ .+ sqrt.(γ1.^2 .+ γ2.^2), 0)
+
+   return critical_tan, critical_rad   
+end
+
+function get_caustic(lens::AbstractLens, gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
+   # Generate critical curves
+   critical_tan, critical_rad = get_critical_curve(gridqty_tuple, θx, θy, adis)
+
+   # Get tangential caustics
+   caustics_tan = Vector{Vector{Vector{Float64}}}(undef, length(critical_tan))
+   for (idx, curve) in enumerate(critical_tan)
+      ψ_x, ψ_y = get_deflection(lens, first.(curve), last.(curve))
+      src_x = first.(curve) .- adis .* ψ_x
+      src_y =  last.(curve) .- adis .* ψ_y
+      caustics_tan[idx] = [[x, y] for (x, y) in zip(src_x, src_y)]
+   end
+ 
+   # Get radial caustics
+   caustics_rad = Vector{Vector{Vector{Float64}}}(undef, length(critical_rad))
+   for (idx, curve) in enumerate(critical_rad)
+      ψ_x, ψ_y = get_deflection(lens, first.(curve), last.(curve))
+      src_x = first.(curve) .- adis .* ψ_x
+      src_y =  last.(curve) .- adis .* ψ_y
+      caustics_rad[idx] = [[x, y] for (x, y) in zip(src_x, src_y)]
+   end
+   return caustics_tan, caustics_rad
+end
+
+function LensFactory.Lenses.plot_image_plane(lens::Lenses.AbstractLens,gridqty_tuple::NTuple{6, T}, θx::Matrix{<:RV}, θy::Matrix{<:RV}, adis::Float64;
+                           two_panel::Bool=false,
+                           plot_critical::Bool=true,
+                           critical_tan_kws::NamedTuple=(color=:red, linewidth=2, linestyle=:solid),
+                           critical_rad_kws::NamedTuple=(color=:red, linewidth=2, linestyle=:dash),
+                           plot_caustic::Bool=true,
+                           caustic_tan_kws::NamedTuple=(color=:green, linewidth=2, linestyle=:solid),
+                           caustic_rad_kws::NamedTuple=(color=:green, linewidth=2, linestyle=:dash),
+                           source::Union{Nothing, NTuple{2, RV}, Matrix{<:RV}} = nothing,
+                           source_kws::NamedTuple=(color=:red, markersize=10, marker=:star5, heatmap=cgrad([:white, :blue])),
+                           image_kws::NamedTuple=(color=:blue, markersize=10, marker=:star5, heatmap=cgrad([:white, :red])),
+                           save_plot::Bool=false,
+                           plot_name::String="image_plane.png",
+                           resolution::Int64=2)
+
+   if two_panel
+      # Initialize empty figure
+      fig = Figure(size=(800, 400), figure_padding=15, fontsize=20, fonts=(; regular="Times New Roman"))
+
+      # Axis for source plane
+      ax1 = Axis(fig[1, 1])
+
+      # Plot source and its images
+      if source !== nothing
+         if isa(source, NTuple{2, RV})
+            scatter!(ax1, source[1], source[2], color=source_kws.color, markersize=source_kws.markersize, marker=source_kws.marker)
+         elseif isa(source, Matrix{<:RV})
+            heatmap!(ax1, θx[:,1], θy[1,:], source, colormap=source_kws.heatmap)
+         else
+            error("Invalid source type: $(typeof(source)). Must be NTuple{2, RV} or Matrix{<:RV}.")
+         end
+      end
+
+      # Get caustics and plot
+      if plot_caustic
+         # Get caustics
+         caustic_tan, caustic_rad = Lenses.get_caustic(lens, gridqty_tuple, θx, θy, adis)
+
+         # Plot tangential caustic
+         for curve in caustic_tan
+            lines!(ax1, first.(curve), last.(curve); caustic_tan_kws...)
+         end
+
+         # Plot radial caustic
+         for curve in caustic_rad
+            lines!(ax1, first.(curve), last.(curve); caustic_rad_kws...)
+         end
+      end
+
+   
+      # Set plot keywords
+      LensFactory.Lenses.set_plotKws!(ax1)
+
+      # Set axis labels and limits
+      ax1.xlabel = L"\theta_1~\text{(in arcseconds)}"
+      ax1.ylabel = L"\theta_2~\text{(in arcseconds)}"
+      xlims!(minimum(θx), maximum(θx))
+      ylims!(minimum(θy), maximum(θy))
+
+      # Axis for image plane
+      ax2 = Axis(fig[1, 2])
+
+      # Plot source and its images
+      if source !== nothing
+         # Get the image positions
+         image = Lenses.get_image(gridqty_tuple, θx, θy, adis, source)
+         if isa(source, NTuple{2, RV})
+            scatter!(ax2, first.(image), last.(image), color=image_kws.color, markersize=image_kws.markersize, marker=image_kws.marker)
+         elseif isa(source, Matrix{<:RV})
+            heatmap!(ax2, θx[:,1], θy[1,:], image, colormap=image_kws.heatmap)
+         else
+            ArgumentError("Invalid source type: $(typeof(source)). Must be NTuple{2, RV} or Matrix{<:RV}.")
+         end
+      end
+
+      # Get critical curves
+      if plot_critical
+         # Get critical curves
+         crit_tan, crit_rad = Lenses.get_critical_curve(gridqty_tuple, θx, θy, adis)
+
+         # Plot tangential critical curve
+         for curve in crit_tan
+            lines!(ax2, first.(curve), last.(curve); critical_tan_kws...)
+         end
+
+         # Plot radial critical curve
+         for curve in crit_rad
+            lines!(ax2, first.(curve), last.(curve); critical_rad_kws...)
+         end
+      end
+
+      # Set plot keywords
+      LensFactory.Lenses.set_plotKws!(ax2)
+
+      # Set axis labels and limits
+      ax2.xlabel = L"\theta_1~\text{(in arcseconds)}"
+      ax2.ylabel = L"\theta_2~\text{(in arcseconds)}"
+      xlims!(minimum(θx), maximum(θx))
+      ylims!(minimum(θy), maximum(θy))
+
+      # Save plot
+      if save_plot
+         save(plot_name, fig, px_per_unit=resolution)
+      end
+      return fig, [ax1, ax2]
+   else
+      # Initialize empty figure
+      fig = Figure(size=(400, 400), figure_padding=15, fontsize=20, fonts=(; regular="Times New Roman"))
+      
+      # Plot source + image plane
+      ax = Axis(fig[1, 1])
+
+      if source !== nothing
+         # Get the image positions
+         image = Lenses.get_image(lens, gridqty_tuple, θx, θy, adis, source)
+
+         if isa(source, NTuple{2, RV})
+            scatter!(ax, source[1], source[2], color=source_kws.color, markersize=source_kws.markersize, marker=source_kws.marker)
+            scatter!(ax, first.(image), last.(image), color=image_kws.color, markersize=image_kws.markersize, marker=image_kws.marker)
+         elseif isa(source, Matrix{<:RV})
+            heatmap!(ax, θx[:,1], θy[1,:], source, colormap=source_kws.heatmap, alpha=1.0)                                       
+            heatmap!(ax, θx[:,1], θy[1,:], image, colormap=image_kws.heatmap, alpha=0.8)
+         else
+            error("Invalid source type: $(typeof(source)). Must be NTuple{2, RV} or Matrix{<:RV}.")
+         end
+      end
+
+      if plot_caustic
+         # Get caustics
+         caustic_tan, caustic_rad = Lenses.get_caustic(gridqty_tuple, θx, θy, adis)
+
+         # Plot tangential caustic
+         for curve in caustic_tan
+            lines!(ax, first.(curve), last.(curve); caustic_tan_kws...)
+         end
+
+         # Plot radial caustic
+         for curve in caustic_rad
+            lines!(ax, first.(curve), last.(curve); caustic_rad_kws...)
+         end
+      end
+
+      if plot_critical
+         # Get critical curves
+         crit_tan, crit_rad = Lenses.get_critical_curve(gridqty_tuple, θx, θy, adis)
+
+         # Plot tangential critical curve
+         for curve in crit_tan
+            lines!(ax, first.(curve), last.(curve); critical_tan_kws...)
+         end
+
+         # Plot radial critical curve
+         for curve in crit_rad
+            lines!(ax, first.(curve), last.(curve); critical_rad_kws...)
+         end
+      end
+
+
+      # Set plot keywords
+      LensFactory.Lenses.set_plotKws!(ax)
+
+      # Set axis labels and limits
+      ax.xlabel = L"\theta_1~\text{(in arcseconds)}"
+      ax.ylabel = L"\theta_2~\text{(in arcseconds)}"
+      xlims!(minimum(θx), maximum(θx))
+      ylims!(minimum(θy), maximum(θy))
+
+      if save_plot
+         save(plot_name, fig, px_per_unit=resolution)
+      end
+      return fig, ax
+   end
 end
 
 # New methods for LensModel that are compatible with the fast kernel based calculations.

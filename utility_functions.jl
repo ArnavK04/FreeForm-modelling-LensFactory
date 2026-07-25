@@ -120,33 +120,34 @@ function make_gridfrom_model(model::LensModel.ModelConfig)
     return gridx, gridy
 end
 
-function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path::String, sub_kernel::Vector{NTuple{6, Matrix{Float64}}}) where {T <: RV, M <: ROA, N <: ROA}
+function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path::String, gridqty_tuple::NTuple{6, M}, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
     """
     Predicts the image positions based on the lens model and source positions.
     """
 
-    t0 = time()
-    αx, αy = Lenses.get_deflection(lens, θx, θy, sub_kernel)
-    t1 = time()
-    print("Deflection calc took: ", t1 - t0, " s, ")
+    αx, αy = kidqty_tuple[2], kidqty_tuple[3]           # Get deflection angles from the tuple for images.
 
     βx = θx .- αx .* adis
     βy = θy .- αy .* adis
 
     t2 = time()
-    μ_obs = Lenses.get_magnification_image(lens, θx, θy, adis, sub_kernel)
+    ψxx, ψyy, ψxy = kidqty_tuple[4], kidqty_tuple[5], kidqty_tuple[6]  # Get second derivatives from the tuple for images.
+    ψxx_ = ψxx .* adis
+    ψyy_ = ψyy .* adis
+    ψxy_ = ψxy .* adis
+    μ_obs = @. 1.0 / (1.0 + ψxx_ * ψyy_ - ψxx_ - ψyy_ - ψxy_^2)
     print("Magnification calc took: ", time() - t2, " s, ")
     # Calculate barycenter source position
     βx_model = sum(βx .* μ_obs.^2) / sum(μ_obs.^2)
     βy_model = sum(βy .* μ_obs.^2) / sum(μ_obs.^2)
 
     t3 = time()
-    images = Lenses.get_image(lens, gridx, gridy, adis, (βx_model, βy_model))
+    images = Lenses.get_image(gridqty_tuple, θx, θy, adis, (βx_model, βy_model))
     print("Image prediction calc took: ", time() - t3, " s, ")
 
     if plot_flag
         t4 = time()
-        fig, axes = Lenses.plot_image_plane(lens, gridx, gridy, adis, source=(βx_model, βy_model), two_panel=true)
+        fig, axes = Lenses.plot_image_plane(lens, gridqty_tuple, gridx, gridy, adis, source=(βx_model, βy_model), two_panel=true)
         makie_points = [Point2f(pt) for pt in images_obs]
         scatter!(axes[2], makie_points, color=:cyan, markersize=8)
         print("Plotting took: ", time() - t4, " s, ")
@@ -157,7 +158,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     
 end
 
-function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String, thres::Float64, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where M <: ROA
+function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String, thres::Float64, gridqty_tuple::NTuple{6, M}, imgqty_tuple) where {M <: ROA}
 
     adis = LensModel.LensModelUtils.adis_current(model, param_ref)
 
@@ -172,18 +173,26 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
         for knot in src.knots
             x = knot.x
             y = knot.y
-
-            sub_kernel = full_kernel[kid_global]
-
             images_obs = [(xi, yi) for (xi, yi) in zip(x, y)]
-            images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path, sub_kernel)
+            ψkid = imgqty_tuple[1][kid_global]
+            αxkid = imgqty_tuple[2][kid_global]
+            αykid = imgqty_tuple[3][kid_global]
+            ψxxkid = imgqty_tuple[4][kid_global]
+            ψyykid = imgqty_tuple[5][kid_global]
+            ψxykid = imgqty_tuple[6][kid_global]
+            kidqty_tuple = (ψkid, αxkid, αykid, ψxxkid, ψyykid, ψxykid)
+
+            images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path, gridqty_tuple, kidqty_tuple)
+
             println(length(images_obs), " Observed images: ", images_obs)
             println(length(images_pred), " Predicted images: ", images_pred)
+
             sum_rms_, actual_count_ = give_sum_rms(images_pred, images_obs, thres)
             sum_rms += sum_rms_
             count += actual_count_
             kid += 1
             kid_global += 1
+
             println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(length(images_obs)), rms = $(sqrt(sum_rms_/actual_count_))")
             println("------------------------------------------------------")
         end
@@ -216,35 +225,25 @@ function give_sum_rms(images_pred, images_obs, threshold_distance)
             sum_rms += len_closest^2
             actual_count += 1
         else
-            println("Not counting iamge $(image) since closest prediction is too far away: $(pred_closest) with distance $(len_closest)")
+            println("Not counting image $(image) since closest prediction is too far away: $(pred_closest) with distance $(len_closest)")
         end
     end
     return sum_rms, actual_count
 end
 
-function plot_clusterimages(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, qtyname::String, adis::T, gridx::M, gridy::M, path::String) where {T <: RV, M <: ROA}
+function add_clusterimages(model::LensModel.ModelConfig) 
     """
-    Plots the given quantity (e.g., convergence, magnification) on the image plane along with the observed images.
+    returns list of makie points for cluster images.
     """
-    if qtyname == "magnification"
-        fig, axes = Lenses.plot_magnification_map(lens, gridx, gridy, adis, heatmap_kws = (colormap = :turbo, colorrange = (0, 100)))
-    elseif qtyname == "kappa"
-        fig, axes = Lenses.plot_surface_density(lens, gridx, gridy, adis, unit=:convergence, heatmap_kws = (colormap = :turbo, colorrange = (0, 3.75)))
-    else
-        error("Supported names are 'magnification' and 'kappa'.")
-    end
-
     for src in model.source_config.sources
         for knot in src.knots
             x = knot.x
             y = knot.y
             images_obs = [(xi, yi) for (xi, yi) in zip(x, y)]
             makie_points = [Point2f(pt) for pt in images_obs]
-            scatter!(axes, makie_points, color=:black, markersize=3)
         end
     end
-    save(path * "$(qtyname)_map_with_images.png", fig)
-
+    return makie_points
 end
 
 end  # module end
