@@ -505,14 +505,14 @@ function Lenses.get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, 
    ψxx, ψyy, ψxy = gridqty_tuple[4], gridqty_tuple[5], gridqty_tuple[6]
 
    # Scale the deformation tensor
-   @. ψxx = adis * ψxx
-   @. ψyy = adis * ψyy
-   @. ψxy = adis * ψxy
+   @. ψxx_s = adis * ψxx
+   @. ψyy_s = adis * ψyy
+   @. ψxy_s = adis * ψxy
 
    # Convergence and shear components
-   κ  = 0.5 .* (ψxx .+ ψyy)
-   γ1 = 0.5 .* (ψxx .- ψyy)
-   γ2 = ψxy
+   κ  = 0.5 .* (ψxx_s .+ ψyy_s)
+   γ1 = 0.5 .* (ψxx_s .- ψyy_s)
+   γ2 = ψxy_s
 
    # Get the zero eigenvalue contours
    critical_tan = ContourFinder.get_contour(θx, θy, 1.0 .- κ .- sqrt.(γ1.^2 .+ γ2.^2), 0)
