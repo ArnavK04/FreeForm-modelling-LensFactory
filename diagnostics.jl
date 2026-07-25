@@ -229,7 +229,7 @@ function main()
 
     if plot_image_flag_og
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, ares_lens, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, ares_path, thres)
+        rms = UtilityFunctions.give_image_rmsscatter(model, ares_lens_withkernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, ares_path, thres, full_kernel)
         open(ares_path * "rms.txt", "a") do io
             println(io, "rms of image positions with threshold = $(thres): " * string(rms))
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
@@ -237,7 +237,7 @@ function main()
         println("time taken for rms calc: ", time() - time_start_image, " seconds.")
     elseif plot_image_flag
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(name)_res_$(res)/", thres)
+        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_withkernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(name)_res_$(res)/", thres, full_kernel)
         # save the rms to a text file
         open("../Diagnostics/plots/$(name)_res_$(res)/rms.txt", "a") do io
             println(io, "rms of image positions with threshold = $(thres): " * string(rms))
