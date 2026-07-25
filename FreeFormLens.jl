@@ -325,27 +325,30 @@ function Lenses.potential_helper!(ψ::T, lens::init_FreeFormLens, θx::T, θy::T
       # kid tells which sub-kernel to use for the given image positions. The kernel is a vector of vectors of Ntuples of matrices.
       return potential!(ψ, θx, θy, lens.κ, lens.gridx, lens.gridy, kernel)
    elseif !lens.kernel_flag  && kernel != nothing
-      @warn "Kernel is passed but kernel_flag is false. not doing anything." 
+      @warn "Kernel is passed but kernel_flag is false. calling original function."
+      return potential!(ψ, θx, θy, lens.κ, lens.gridx, lens.gridy) 
    else
       return potential!(ψ, θx, θy, lens.κ, lens.gridx, lens.gridy)
    end
 end
 
 function Lenses.deflection_helper!(ψx::T, ψy::T, lens::init_FreeFormLens, θx::T, θy::T, kernel::Union{Nothing, Vector{NTuple{6, Matrix{Float64}}}} = nothing) where T <: Union{RV, ROA}
-    if lens.kernel_flag
+    if lens.kernel_flag && kernel != nothing
         return deflection!(ψx, ψy, θx, θy, lens.κ, lens.gridx, lens.gridy, kernel)
     elseif !lens.kernel_flag  && kernel != nothing
-      @warn "Kernel is passed but kernel_flag is false. not doing anything." 
+      @warn "Kernel is passed but kernel_flag is false. calling original function."
+        return deflection!(ψx, ψy, θx, θy, lens.κ, lens.gridx, lens.gridy) 
     else
         return deflection!(ψx, ψy, θx, θy, lens.κ, lens.gridx, lens.gridy)
     end
 end
 
 function Lenses.jacobian_helper!(ψxx::T, ψyy::T, ψxy::T, lens::init_FreeFormLens, θx::T, θy::T, kernel::Union{Nothing, Vector{NTuple{6, Matrix{Float64}}}} = nothing) where T <: Union{RV, ROA}
-    if lens.kernel_flag
+    if lens.kernel_flag && kernel != nothing
         return jacobian!(ψxx, ψyy, ψxy, θx, θy, lens.κ, lens.gridx, lens.gridy, kernel)
     elseif !lens.kernel_flag  && kernel != nothing
-      @warn "Kernel is passed but kernel_flag is false. not doing anything." 
+      @warn "Kernel is passed but kernel_flag is false. calling original function."
+        return jacobian!(ψxx, ψyy, ψxy, θx, θy, lens.κ, lens.gridx, lens.gridy) 
     else
         return jacobian!(ψxx, ψyy, ψxy, θx, θy, lens.κ, lens.gridx, lens.gridy)
     end
@@ -378,7 +381,7 @@ function Lenses.get_deflection(lens::Lenses.AbstractLens, θx::T, θy::T, kernel
 
    if lens._lens_ == :CompositeLens
       for component in lens._components_
-         if component._lens_ == :FreeFormLens
+         if component._lens_ == :FreeFormLens && kernel != nothing
             Lenses.deflection_helper!(ψx, ψy, component, θx, θy, kernel)
          else
             Lenses.deflection_helper!(ψx, ψy, component, θx, θy)
@@ -386,7 +389,7 @@ function Lenses.get_deflection(lens::Lenses.AbstractLens, θx::T, θy::T, kernel
       end
       return ψx, ψy
    else
-      if lens._lens_ == :FreeFormLens
+      if lens._lens_ == :FreeFormLens && kernel != nothing
          Lenses.deflection_helper!(ψx, ψy, lens, θx, θy, kernel)
       else
          Lenses.deflection_helper!(ψx, ψy, lens, θx, θy)
@@ -419,7 +422,7 @@ function Lenses.get_jacobian(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::
 
    if lens._lens_ == :CompositeLens
       for component in lens._components_
-         if component._lens_ == :FreeFormLens
+         if component._lens_ == :FreeFormLens && kernel != nothing
             Lenses.jacobian_helper!(ψxx, ψyy, ψxy, component, θx, θy, kernel)
          else
             Lenses.jacobian_helper!(ψxx, ψyy, ψxy, component, θx, θy)
@@ -427,7 +430,7 @@ function Lenses.get_jacobian(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::
       end
       return ψxx, ψyy, ψxy
    else
-      if lens._lens_ == :FreeFormLens
+      if lens._lens_ == :FreeFormLens && kernel != nothing
          Lenses.jacobian_helper!(ψxx, ψyy, ψxy, lens, θx, θy, kernel)
       else
          Lenses.jacobian_helper!(ψxx, ψyy, ψxy, lens, θx, θy)
@@ -453,7 +456,7 @@ function Lenses.get_potential(lens::Lenses.AbstractLens, θx::T, θy::T, kernel:
 
    if lens._lens_ == :CompositeLens
       for component in lens._components_
-         if component._lens_ == :FreeFormLens
+         if component._lens_ == :FreeFormLens && kernel != nothing
             Lenses.potential_helper!(ψ, component, θx, θy, kernel)
          else
             Lenses.potential_helper!(ψ, component, θx, θy)
@@ -461,7 +464,7 @@ function Lenses.get_potential(lens::Lenses.AbstractLens, θx::T, θy::T, kernel:
       end
       return ψ
    else
-      if lens._lens_ == :FreeFormLens
+      if lens._lens_ == :FreeFormLens && kernel != nothing
          Lenses.potential_helper!(ψ, lens, θx, θy, kernel)
       else
          Lenses.potential_helper!(ψ, lens, θx, θy)

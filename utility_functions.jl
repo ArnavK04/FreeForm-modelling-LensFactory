@@ -141,7 +141,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     βy_model = sum(βy .* μ_obs.^2) / sum(μ_obs.^2)
 
     t3 = time()
-    images = Lenses.get_image(lens, gridx, gridy, adis, (βx_model, βy_model), sub_kernel)
+    images = Lenses.get_image(lens, gridx, gridy, adis, (βx_model, βy_model))
     print("Image prediction calc took: ", time() - t3, " s, ")
 
     if plot_flag
