@@ -354,6 +354,8 @@ end
 # The next new methods are needed so that composite lenses can work as well. 
 # Will be needed for hybrid modelling in the future.
 
+# new methods for Lenses module - they work with precomputed kernel for freeform lens.
+
 function Lenses.get_deflection(lens::Lenses.AbstractLens, θx::T, θy::T, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
    """
    Same except it takes kid as well. So that freefmlens during modelling knows which 
@@ -468,6 +470,45 @@ function Lenses.get_potential(lens::Lenses.AbstractLens, θx::T, θy::T, kernel:
    end
 end
 
+function Lenses.get_magnification_image(lens::AbstractLens, θx::T, θy::T, adis::Float64, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
+   # Get the jacobian components
+   ψxx, ψyy, ψxy = get_jacobian(lens, θx, θy, kernel)
+
+   # Scale the deformation tensor
+   @. ψxx = adis * ψxx
+   @. ψyy = adis * ψyy
+   @. ψxy = adis * ψxy
+
+   # μ = 1 / det(1 - A)
+   return @. 1.0 / (1.0 + ψxx * ψyy - ψxx - ψyy - ψxy^2)
+end
+
+function Lenses.get_image(lens::AbstractLens, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: Matrix{<:RV}
+   # Get the potential gradient
+   ψx, ψy = get_deflection(lens, θx, θy, kernel)
+
+   # Get grid for contour
+   RXC = ContourFinder.get_contour(θx, θy, β[1] .- θx .+ adis .* ψx, 0.0)
+   RYC = ContourFinder.get_contour(θx, θy, β[2] .- θy .+ adis .* ψy, 0.0)
+
+   # Initialize empty Vector of tuples to store image positions
+   image_position::Vector{NTuple{2, RV}} = []
+   for contour_1 in RXC
+      for contour_2 in RYC
+         # Find the intersection points
+         intersect_points = IntersectionFinder.get_intersection(first.(contour_1), last.(contour_1), first.(contour_2), last.(contour_2))
+         
+         # Store the intersection points in the image_position vector
+         for point in intersect_points
+            push!(image_position, point)
+         end
+      end
+   end
+   return image_position
+end
+
+# New methods for LensModel that are compatible with the fast kernel based calculations.
+
 function LensModel.LensModelUtils.lens_quantities(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, full_kernel::Union{Vector{Vector{NTuple{6, Matrix{Float64}}}}})
    # Count the total number of knots in the lens model
    n_knots = sum(length(s.knots) for s in model.source_config.sources)
@@ -518,6 +559,7 @@ free-form modelling. For general purpose lensing, use the original functions.
 """
 
 function give_kernel(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+
     output_array = Vector{NTuple{6, Matrix{Float64}}}(undef, length(θx))
     ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
     cell_size = gridx[2] - gridx[1]

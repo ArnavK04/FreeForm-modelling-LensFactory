@@ -301,7 +301,6 @@ function main()
             store_trace  = true,
             show_trace  = true,
             show_every  = 5,
-            extended_trace = true,
             #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
             callback = print_ram_stats
@@ -363,7 +362,7 @@ function main()
             iterations   = Optim.iterations(result),
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
-            converged    = Optim.converged(result)
+            converged    = Optim.converged(result),
             trace        = trace
         )
 
@@ -390,7 +389,7 @@ function main()
             iterations   = Optim.iterations(result),
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
-            converged    = Optim.converged(result)
+            converged    = Optim.converged(result),
             trace        = trace
         )
     end

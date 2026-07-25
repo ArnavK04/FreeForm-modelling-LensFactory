@@ -120,27 +120,36 @@ function make_gridfrom_model(model::LensModel.ModelConfig)
     return gridx, gridy
 end
 
-function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path::String) where {T <: RV, M <: ROA, N <: ROA}
+function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path::String, sub_kernel::Vector{NTuple{6, Matrix{Float64}}}) where {T <: RV, M <: ROA, N <: ROA}
     """
     Predicts the image positions based on the lens model and source positions.
     """
-    αx, αy = Lenses.get_deflection(lens, θx, θy)
+
+    t0 = time()
+    αx, αy = Lenses.get_deflection(lens, θx, θy, sub_kernel)
+    t1 = time()
+    print("Deflection calc took: ", t1 - t0, " s, ")
 
     βx = θx .- αx .* adis
     βy = θy .- αy .* adis
 
-    μ_obs = Lenses.get_magnification_image(lens, θx, θy, adis)
-
+    t2 = time()
+    μ_obs = Lenses.get_magnification_image(lens, θx, θy, adis, sub_kernel)
+    print("Magnification calc took: ", time() - t2, " s, ")
     # Calculate barycenter source position
     βx_model = sum(βx .* μ_obs.^2) / sum(μ_obs.^2)
     βy_model = sum(βy .* μ_obs.^2) / sum(μ_obs.^2)
 
-    images = Lenses.get_image(lens, gridx, gridy, adis, (βx_model, βy_model))
+    t3 = time()
+    images = Lenses.get_image(lens, gridx, gridy, adis, (βx_model, βy_model), sub_kernel)
+    print("Image prediction calc took: ", time() - t3, " s, ")
 
     if plot_flag
+        t4 = time()
         fig, axes = Lenses.plot_image_plane(lens, gridx, gridy, adis, source=(βx_model, βy_model), two_panel=true)
         makie_points = [Point2f(pt) for pt in images_obs]
         scatter!(axes[2], makie_points, color=:cyan, markersize=8)
+        print("Plotting took: ", time() - t4, " s, ")
         outpath = path * "images_sid$(sid)_kid$(kid).png"
         save(outpath, fig)
     end
@@ -148,12 +157,13 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     
 end
 
-function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String, thres::Float64) where M <: ROA
+function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path::String, thres::Float64, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where M <: ROA
 
     adis = LensModel.LensModelUtils.adis_current(model, param_ref)
 
     sid = 1
     kid = 1
+    kid_global = 1
     sum_rms = 0.0
     count = 0
     for src in model.source_config.sources
@@ -162,14 +172,18 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
         for knot in src.knots
             x = knot.x
             y = knot.y
+
+            sub_kernel = full_kernel[kid_global]
+
             images_obs = [(xi, yi) for (xi, yi) in zip(x, y)]
-            images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path)
+            images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path, sub_kernel)
             println(length(images_obs), " Observed images: ", images_obs)
             println(length(images_pred), " Predicted images: ", images_pred)
             sum_rms_, actual_count_ = give_sum_rms(images_pred, images_obs, thres)
             sum_rms += sum_rms_
             count += actual_count_
             kid += 1
+            kid_global += 1
             println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(length(images_obs)), rms = $(sqrt(sum_rms_/actual_count_))")
             println("------------------------------------------------------")
         end
