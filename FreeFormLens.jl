@@ -472,7 +472,7 @@ end
 
 function Lenses.get_magnification_image(lens::Lenses.AbstractLens, θx::T, θy::T, adis::Float64, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: ROA
    # Get the jacobian components
-   ψxx, ψyy, ψxy = get_jacobian(lens, θx, θy, kernel)
+   ψxx, ψyy, ψxy = Lenses.get_jacobian(lens, θx, θy, kernel)
 
    # Scale the deformation tensor
    @. ψxx = adis * ψxx
@@ -485,7 +485,7 @@ end
 
 function Lenses.get_image(lens::Lenses.AbstractLens, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}, kernel::Vector{NTuple{6, Matrix{Float64}}}) where T <: Matrix{<:RV}
    # Get the potential gradient
-   ψx, ψy = get_deflection(lens, θx, θy, kernel)
+   ψx, ψy = Lenses.get_deflection(lens, θx, θy, kernel)
 
    # Get grid for contour
    RXC = ContourFinder.get_contour(θx, θy, β[1] .- θx .+ adis .* ψx, 0.0)
