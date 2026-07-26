@@ -152,12 +152,12 @@ function main()
     free_lens = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine, true)
     freefull_kernel = FreeFormLens.compute_fullkernel(model, x_fine, y_fine)
     ψ_all, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, free_lens, freefull_kernel)
-    freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all[1], A_all[4], A_all[2])    # ψxx, ψyy, ψxy
+    freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all) 
     if plot_image_flag_og
         ares_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, false)
         ares_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, true)
         ψ_ares, αx_ares, αy_ares, A_ares = LensModel.LensModelUtils.lens_quantities(model, ares_lens, freefull_kernel)
-        aresimgqty_tuple = (ψ_ares, αx_ares, αy_ares, A_ares[1], A_ares[4], A_ares[2])    # ψxx, ψyy, ψxy
+        aresimgqty_tuple = (ψ_ares, αx_ares, αy_ares, A_ares)
     end
     println("Lens initialized.")
 

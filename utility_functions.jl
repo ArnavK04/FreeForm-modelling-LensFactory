@@ -178,9 +178,9 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
             ψkid = imgqty_tuple[1][kid_global]
             αxkid = imgqty_tuple[2][kid_global]
             αykid = imgqty_tuple[3][kid_global]
-            ψxxkid = imgqty_tuple[4][kid_global]
-            ψyykid = imgqty_tuple[5][kid_global]
-            ψxykid = imgqty_tuple[6][kid_global]
+            ψxxkid = imgqty_tuple[4][kid_global][1]
+            ψyykid = imgqty_tuple[4][kid_global][4]
+            ψxykid = imgqty_tuple[4][kid_global][2]
             kidqty_tuple = (ψkid, αxkid, αykid, ψxxkid, ψyykid, ψxykid)
 
             images_pred = predict_image(lens, gridx, gridy, x, y, adis_value, sid, kid, images_obs, plot_flag, path, gridqty_tuple, kidqty_tuple)

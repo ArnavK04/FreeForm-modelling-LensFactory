@@ -4,6 +4,7 @@ using LensFactory
 using LensFactory.Constants
 using Trapz
 using CairoMakie
+using LensFactory.LFUtils
 
 # Functions to export
 export potential!
@@ -505,9 +506,9 @@ function Lenses.get_critical_curve(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, 
    ψxx, ψyy, ψxy = gridqty_tuple[4], gridqty_tuple[5], gridqty_tuple[6]
 
    # Scale the deformation tensor
-   @. ψxx_s = adis * ψxx
-   @. ψyy_s = adis * ψyy
-   @. ψxy_s = adis * ψxy
+   ψxx_s = adis .* ψxx
+   ψyy_s = adis .* ψyy
+   ψxy_s = adis .* ψxy
 
    # Convergence and shear components
    κ  = 0.5 .* (ψxx_s .+ ψyy_s)
@@ -523,12 +524,12 @@ end
 
 function Lenses.get_caustic(lens::Lenses.AbstractLens, gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64) where T <: Matrix{<:RV}
    # Generate critical curves
-   critical_tan, critical_rad = get_critical_curve(gridqty_tuple, θx, θy, adis)
+   critical_tan, critical_rad = Lenses.get_critical_curve(gridqty_tuple, θx, θy, adis)
 
    # Get tangential caustics
    caustics_tan = Vector{Vector{Vector{Float64}}}(undef, length(critical_tan))
    for (idx, curve) in enumerate(critical_tan)
-      ψ_x, ψ_y = get_deflection(lens, first.(curve), last.(curve))
+      ψ_x, ψ_y = Lenses.get_deflection(lens, first.(curve), last.(curve))
       src_x = first.(curve) .- adis .* ψ_x
       src_y =  last.(curve) .- adis .* ψ_y
       caustics_tan[idx] = [[x, y] for (x, y) in zip(src_x, src_y)]
@@ -537,7 +538,7 @@ function Lenses.get_caustic(lens::Lenses.AbstractLens, gridqty_tuple::NTuple{6, 
    # Get radial caustics
    caustics_rad = Vector{Vector{Vector{Float64}}}(undef, length(critical_rad))
    for (idx, curve) in enumerate(critical_rad)
-      ψ_x, ψ_y = get_deflection(lens, first.(curve), last.(curve))
+      ψ_x, ψ_y = Lenses.get_deflection(lens, first.(curve), last.(curve))
       src_x = first.(curve) .- adis .* ψ_x
       src_y =  last.(curve) .- adis .* ψ_y
       caustics_rad[idx] = [[x, y] for (x, y) in zip(src_x, src_y)]
