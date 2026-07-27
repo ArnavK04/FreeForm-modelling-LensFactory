@@ -71,25 +71,32 @@ function main()
     fact = round(Int, res/0.14)
 
     println("loading fits data..")
+    time_loadstart = time()
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
     kappa = Float64.(kappa)  # Ensure kappa is of type Float64
     gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
     gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
+    println("ares data loaded in ", time() - time_loadstart, " seconds.")
 
     println("interpolating...")
     # interpolate to a particular grid
     order = 3  # cubic interpolation
+    refinestart = time()
     kappa_finefits, gridx_finefits, gridy_finefits = UtilityFunctions.refine_map(kappa, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
     gamma1_finefits, _, _ = UtilityFunctions.refine_map(gamma1, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
     gamma2_finefits, _, _ = UtilityFunctions.refine_map(gamma2, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
-    mag_finefits = zeros(size(kappa_finefits)) 
-    @. mag_finefits = 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
+    magstrt = time()
+    println("interpolation done in ", magstrt - refinestart, " seconds.")
+    mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
+    println("magnification calculated in ", time() - magstrt, " seconds.")
     
     ares_path = "../Ares_data/$(res)/"
+
     if fits_flag
 
         mkpath(ares_path)
 
+        aresplotstart = time()
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_[1,2], hm; label = "κ", width = 20)
@@ -109,6 +116,8 @@ function main()
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = (0, 100))
         cb = Colorbar(fig_[1,2], hm; label = "|μ|", width = 20)
         save(ares_path * "mag_finefits.png", fig_)
+
+        println("ares plots saved in ", time() - aresplotstart, " seconds.")
     end
 
     filename = "../Diagnostics/files/$name" * ".jld2"
@@ -143,11 +152,15 @@ function main()
     println("size of gridx: ", size(gridx))
     println("size of gridy: ", size(gridy))
 
+
+    obsrefinestart = time()
     κ_fine, x_fine, y_fine = UtilityFunctions.refine_map(κ_map, gridx, gridy, X_lim, Y_lim, res, order)
     prior_kappa_fine, _, _ = UtilityFunctions.refine_map(prior_kappa, gridx, gridy, X_lim, Y_lim, res, order)
     init_guess_fine, _, _ = UtilityFunctions.refine_map(init_guess, gridx, gridy, X_lim, Y_lim, res, order)
+    println("refining the optimal maps done in ", time() - obsrefinestart, " seconds.")
 
     # initialize the lens
+    initlenstime = time()
     free_lens_nokernel = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine, false)
     free_lens = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine, true)
     freefull_kernel = FreeFormLens.compute_fullkernel(model, x_fine, y_fine)
@@ -159,9 +172,10 @@ function main()
         ψ_ares, αx_ares, αy_ares, A_ares = LensModel.LensModelUtils.lens_quantities(model, ares_lens, freefull_kernel)
         aresimgqty_tuple = (ψ_ares, αx_ares, αy_ares, A_ares)
     end
-    println("Lens initialized.")
+    println("Lens initialized in ", time() - initlenstime, " seconds.")
 
     # calculate the lens quantities over the whole grid
+    lensqtystart = time()
     ψ_free = Lenses.get_potential(free_lens, x_fine, y_fine)
     αx_free, αy_free = Lenses.get_deflection(free_lens, x_fine, y_fine)
     ψxx_free, ψyy_free, ψxy_free = Lenses.get_jacobian(free_lens, x_fine, y_fine)
@@ -172,7 +186,7 @@ function main()
         ψxx_ares, ψyy_ares, ψxy_ares = Lenses.get_jacobian(ares_lens, x_fine, y_fine)
         ares_qty_tuple = (ψ_ares, αx_ares, αy_ares, ψxx_ares, ψyy_ares, ψxy_ares)
     end
-    println("Lensing quantities calculated.")
+    println("Lensing quantities calculated in ", time() - lensqtystart, " seconds.")
 
     flush(stdout)
     
@@ -185,7 +199,7 @@ function main()
 
     if plot_file_diag
 
-        mag_fine = Lenses.get_magnification_image(free_lens, x_fine, y_fine, adis)
+        mag_fine = @. 1.0 / (1.0 + adis * adis * ψxx_free * ψyy_free - adis * ψxx_free - adis * ψyy_free - adis * adis * ψxy_free^2)
 
         println("plotting the results...")
         fig_magdev, axes_magdev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
@@ -231,7 +245,7 @@ function main()
         save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_magnification_map_with_images.png", fig_mag)
 
         time_planemap_start = time()
-        cc_fig, cc_axes = Lenses.plot_image_plane(free_lens, x_fine, y_fine, adis, two_panel = true)
+        cc_fig, cc_axes = Lenses.plot_image_plane(free_lens_nokernel, free_qty_tuple, x_fine, y_fine, adis, two_panel = true)        # bottleneck
         save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_critical_curves.png", cc_fig)
         println("plotted the critical curves and caustics in ", time() - time_planemap_start, " seconds.")
 

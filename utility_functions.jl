@@ -243,7 +243,7 @@ function add_clusterimages(model::LensModel.ModelConfig)
             x = knot.x
             y = knot.y
             images_obs = [(xi, yi) for (xi, yi) in zip(x, y)]
-            makie_points = [Point2f(pt) for pt in images_obs]
+            append!(makie_points, [Point2f(pt) for pt in images_obs])
         end
     end
     return makie_points
