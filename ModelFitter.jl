@@ -244,14 +244,16 @@ function main()
 
     prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=p_value)
     resolution = gridx[2,1] - gridx[1,1]
+    Y_LIM = gridy[1, end]
+    X_LIM = gridx[end, 1]
     # get full_kernel for the run
     full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
 
     println("size of gridx: ", size(gridx))
     new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
 
-    filename = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)"
-    filename_fromprev = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)"
+    filename = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename_fromprev = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
 
     # load prior from previous run converged map and refine to a finer grid
     if prior_from_prev
