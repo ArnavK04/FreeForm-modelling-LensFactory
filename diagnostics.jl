@@ -43,11 +43,19 @@ function main()
         arg_type = Bool
         default = false
         "--X_lim"
-        help = "X_lim to plot"
+        help = "X_lim for convergence map"
         arg_type = Float64
         default = 150.0
         "--Y_lim"
-        help = "Y_lim to plot"
+        help = "Y_lim for convergence map"
+        arg_type = Float64
+        default = 150.0
+        "--X_lim_plot"
+        help = "X_lim for plotting"
+        arg_type = Float64
+        default = 150.0
+        "--Y_lim_plot"
+        help = "Y_lim for plotting"
         arg_type = Float64
         default = 150.0
         "--res"
@@ -70,6 +78,8 @@ function main()
     thres = args["thres"]
     X_lim = args["X_lim"]
     Y_lim = args["Y_lim"]
+    X_lim_plot = args["X_lim_plot"]
+    Y_lim_plot = args["Y_lim_plot"]
     res = args["res"]
     clustername = args["cname"]
 
@@ -105,21 +115,29 @@ function main()
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_[1,2], hm; label = "κ", width = 20)
+        xlims!(axes_, -X_lim_plot, X_lim_plot)
+        ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "kappa_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma1_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = "γ₁", width = 20)
+        xlims!(axes_, -X_lim_plot, X_lim_plot)
+        ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "gamma1_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma2_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = "γ₂", width = 20)
+        xlims!(axes_, -X_lim_plot, X_lim_plot)
+        ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "gamma2_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = (0, 100))
         cb = Colorbar(fig_[1,2], hm; label = "|μ|", width = 20)
+        xlims!(axes_, -X_lim_plot, X_lim_plot)
+        ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "mag_finefits.png", fig_)
 
         println("$(clustername) plots saved in ", time() - clusterplotstart, " seconds.")
@@ -211,21 +229,29 @@ function main()
         fig_magdev, axes_magdev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_magdev, gridx_finefits[:,1], gridy_finefits[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-1.0, 4.0))
         cb = Colorbar(fig_magdev[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
+        xlims!(axes_magdev, -X_lim_plot, X_lim_plot)
+        ylims!(axes_magdev, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviation.png", fig_magdev)
 
         fig_kappadev, axes_kappadev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_kappadev, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = (-1.0, 2.0))
         cb = Colorbar(fig_kappadev[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
+        xlims!(axes_kappadev, -X_lim_plot, X_lim_plot)
+        ylims!(axes_kappadev, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviation.png", fig_kappadev)
 
         fig_prior, axes_prior = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_prior, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_prior[1,2], hm; label = "κ_prior", width = 20)
+        xlims!(axes_prior, -X_lim_plot, X_lim_plot)
+        ylims!(axes_prior, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_prior_kappa_map.png", fig_prior)
 
         fig_init, axes_init = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_init, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_init[1,2], hm; label = "κ_init_guess", width = 20)
+        xlims!(axes_init, -X_lim_plot, X_lim_plot)
+        ylims!(axes_init, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_init_guess_kappa_map.png", fig_init)
 
         println("plotting the lens magnification/kappa maps...")
@@ -233,17 +259,23 @@ function main()
         """err_fig, err_axes = Lenses.plot_sky(gridx, gridy)
         hm = heatmap!(err_axes, gridx[:,1], gridy[1,:], errors, colormap = :turbo, colorrange = (0, maximum(errors)))
         cb = Colorbar(err_fig[1,2], hm; label = "δκ", width = 20)
+        xlims!(err_axes, -X_lim_plot, X_lim_plot)
+        ylims!(err_axes, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_error_map.png", err_fig)
 
         rel_errors = errors ./ κ_map
         relerr_fig, relerr_axes = Lenses.plot_sky(gridx, gridy)
         hm_rel = heatmap!(relerr_axes, gridx[:,1], gridy[1,:], rel_errors, colormap = :turbo, colorrange = (0, 2))
         cb_rel = Colorbar(relerr_fig[1,2], hm_rel; label = "δκ/κ", width = 20)
+        xlims!(relerr_axes, -X_lim_plot, X_lim_plot)
+        ylims!(relerr_axes, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_relative_error_map.png", relerr_fig)"""
 
         fig_mag, axes_mag = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = (0, 100))
         cb = Colorbar(fig_mag[1,2], hm; label = "|μ|", width = 20)
+        xlims!(axes_mag, -X_lim_plot, X_lim_plot)
+        ylims!(axes_mag, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_magnification_map.png", fig_mag)
 
         makiepts = UtilityFunctions.add_clusterimages(model)
@@ -252,6 +284,8 @@ function main()
 
         time_planemap_start = time()
         cc_fig, cc_axes = Lenses.plot_image_plane(free_lens_nokernel, free_qty_tuple, x_fine, y_fine, adis, two_panel = true)        # bottleneck
+        xlims!(cc_axes, -X_lim_plot, X_lim_plot)
+        ylims!(cc_axes, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_critical_curves.png", cc_fig)
         println("plotted the critical curves and caustics in ", time() - time_planemap_start, " seconds.")
 
@@ -260,9 +294,13 @@ function main()
         κ_fig, κ_axes = Lenses.plot_sky(x_fine, y_fine)
         hm = heatmap!(κ_axes, x_fine[:,1], y_fine[1,:], κ_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(κ_fig[1,2], hm; label = "κ", width = 20)
+        xlims!(κ_axes, -X_lim_plot, X_lim_plot)
+        ylims!(κ_axes, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_map.png", κ_fig)
 
         scatter!(κ_axes, makiepts, color=:black, markersize=3)
+        xlims!(κ_axes, -X_lim_plot, X_lim_plot)
+        ylims!(κ_axes, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_map_with_images.png", κ_fig)
 
         println("χ² of predicted image positions: ", data["chi2"])
