@@ -284,8 +284,10 @@ function main()
 
         time_planemap_start = time()
         cc_fig, cc_axes = Lenses.plot_image_plane(free_lens_nokernel, free_qty_tuple, x_fine, y_fine, adis, two_panel = true)        # bottleneck
-        xlims!(cc_axes, -X_lim_plot, X_lim_plot)
-        ylims!(cc_axes, -Y_lim_plot, Y_lim_plot)
+        xlims!(cc_axes[1], -X_lim_plot, X_lim_plot)
+        ylims!(cc_axes[1], -Y_lim_plot, Y_lim_plot)
+        xlims!(cc_axes[2], -X_lim_plot, X_lim_plot)
+        ylims!(cc_axes[2], -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_critical_curves.png", cc_fig)
         println("plotted the critical curves and caustics in ", time() - time_planemap_start, " seconds.")
 
@@ -318,8 +320,9 @@ function main()
         end
 
         println("time taken for rms calc: ", time() - time_start_image, " seconds.")
+    end
 
-    elseif plot_image_flag
+    if plot_image_flag
 
         time_start_image = time()
         rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
