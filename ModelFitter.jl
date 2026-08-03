@@ -184,6 +184,10 @@ function main()
     settings = ArgParseSettings()
 
     @add_arg_table settings begin
+        "--cname"
+            help = "Name of the cluster being fitted."
+            arg_type = String
+            default = "NotSpecified"
         "--input_file"
             help = "Path to the input YAML file containing lens model parameters."
             arg_type = String
@@ -238,6 +242,7 @@ function main()
     guess_value = args["guess_value"]
     runnumber = args["runnumber"]
     p_value = args["p_value"]
+    clustername = args["cname"]
 
     model = LensModel.read_input(input_file)
     param_ref = Dict(p.key => p.refer for p in model.parameters)
@@ -252,8 +257,8 @@ function main()
     println("size of gridx: ", size(gridx))
     new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
 
-    filename = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
-    filename_fromprev = "MEM_fit_result4res_125FOV_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename_fromprev = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
 
     # load prior from previous run converged map and refine to a finer grid
     if prior_from_prev
@@ -369,7 +374,8 @@ function main()
             trace        = trace,
             X_LIM        = X_LIM,
             Y_LIM        = Y_LIM,
-            resolution   = resolution
+            resolution   = resolution,
+            cluster      = clustername
         )
 
     else 
@@ -399,7 +405,8 @@ function main()
             trace        = trace,
             X_LIM        = X_LIM,
             Y_LIM        = Y_LIM,
-            resolution   = resolution
+            resolution   = resolution,
+            cluster      = clustername
         )
     end
 
