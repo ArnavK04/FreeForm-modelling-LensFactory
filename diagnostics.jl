@@ -70,13 +70,15 @@ function main()
 
     fact = round(Int, res/0.14)
 
+    clustername = "Ares"
+
     println("loading fits data..")
     time_loadstart = time()
-    gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile("Ares")
+    gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile(clustername)
     kappa = Float64.(kappa)  # Ensure kappa is of type Float64
     gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
     gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
-    println("ares data loaded in ", time() - time_loadstart, " seconds.")
+    println("$(clustername) data loaded in ", time() - time_loadstart, " seconds.")
 
     println("interpolating...")
     # interpolate to a particular grid
@@ -90,34 +92,34 @@ function main()
     mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
     println("magnification calculated in ", time() - magstrt, " seconds.")
     
-    ares_path = "../Ares_data/$(res)/"
+    cluster_path = "../$(clustername)_data/$(res)/"
 
     if fits_flag
 
-        mkpath(ares_path)
+        mkpath(cluster_path)
 
-        aresplotstart = time()
+        clusterplotstart = time()
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_[1,2], hm; label = "κ", width = 20)
-        save(ares_path * "kappa_finefits.png", fig_)
+        save(cluster_path * "kappa_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma1_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = "γ₁", width = 20)
-        save(ares_path * "gamma1_finefits.png", fig_)
+        save(cluster_path * "gamma1_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma2_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = "γ₂", width = 20)
-        save(ares_path * "gamma2_finefits.png", fig_)
+        save(cluster_path * "gamma2_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = (0, 100))
         cb = Colorbar(fig_[1,2], hm; label = "|μ|", width = 20)
-        save(ares_path * "mag_finefits.png", fig_)
+        save(cluster_path * "mag_finefits.png", fig_)
 
-        println("ares plots saved in ", time() - aresplotstart, " seconds.")
+        println("$(clustername) plots saved in ", time() - clusterplotstart, " seconds.")
     end
 
     filename = "../Diagnostics/files/$name" * ".jld2"
@@ -167,10 +169,10 @@ function main()
     ψ_all, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, free_lens, freefull_kernel)
     freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all) 
     if plot_image_flag_og
-        ares_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, false)
-        ares_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, true)
-        ψ_ares, αx_ares, αy_ares, A_ares = LensModel.LensModelUtils.lens_quantities(model, ares_lens, freefull_kernel)
-        aresimgqty_tuple = (ψ_ares, αx_ares, αy_ares, A_ares)
+        cluster_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, false)
+        cluster_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, true)
+        ψ_cluster, αx_cluster, αy_cluster, A_cluster = LensModel.LensModelUtils.lens_quantities(model, cluster_lens, freefull_kernel)
+        clusterimgqty_tuple = (ψ_cluster, αx_cluster, αy_cluster, A_cluster)
     end
     println("Lens initialized in ", time() - initlenstime, " seconds.")
 
@@ -181,10 +183,10 @@ function main()
     ψxx_free, ψyy_free, ψxy_free = Lenses.get_jacobian(free_lens, x_fine, y_fine)
     free_qty_tuple = (ψ_free, αx_free, αy_free, ψxx_free, ψyy_free, ψxy_free)
     if plot_image_flag_og
-        ψ_ares = Lenses.get_potential(ares_lens, x_fine, y_fine)
-        αx_ares, αy_ares = Lenses.get_deflection(ares_lens, x_fine, y_fine)
-        ψxx_ares, ψyy_ares, ψxy_ares = Lenses.get_jacobian(ares_lens, x_fine, y_fine)
-        ares_qty_tuple = (ψ_ares, αx_ares, αy_ares, ψxx_ares, ψyy_ares, ψxy_ares)
+        ψ_cluster = Lenses.get_potential(cluster_lens, x_fine, y_fine)
+        αx_cluster, αy_cluster = Lenses.get_deflection(cluster_lens, x_fine, y_fine)
+        ψxx_cluster, ψyy_cluster, ψxy_cluster = Lenses.get_jacobian(cluster_lens, x_fine, y_fine)
+        cluster_qty_tuple = (ψ_cluster, αx_cluster, αy_cluster, ψxx_cluster, ψyy_cluster, ψxy_cluster)
     end
     println("Lensing quantities calculated in ", time() - lensqtystart, " seconds.")
 
@@ -267,8 +269,8 @@ function main()
     if plot_image_flag_og
 
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, ares_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, ares_path, thres, ares_qty_tuple, aresimgqty_tuple)
-        open(ares_path * "rms.txt", "a") do io
+        rms = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
+        open(cluster_path * "rms.txt", "a") do io
             println(io, "rms of image positions with threshold = $(thres): " * string(rms))
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
         end

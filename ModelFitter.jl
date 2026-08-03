@@ -366,7 +366,10 @@ function main()
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
             converged    = Optim.converged(result),
-            trace        = trace
+            trace        = trace,
+            X_LIM        = X_LIM,
+            Y_LIM        = Y_LIM,
+            resolution   = resolution
         )
 
     else 
@@ -393,7 +396,10 @@ function main()
             time_run     = Optim.time_run(result),
             stopped_by   = result.stopped_by,
             converged    = Optim.converged(result),
-            trace        = trace
+            trace        = trace,
+            X_LIM        = X_LIM,
+            Y_LIM        = Y_LIM,
+            resolution   = resolution
         )
     end
 
