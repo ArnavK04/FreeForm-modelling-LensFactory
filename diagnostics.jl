@@ -18,6 +18,10 @@ function main()
     settings = ArgParseSettings()
 
     @add_arg_table settings begin
+        "--cname"
+        help = "Name of the cluster being fitted."
+        arg_type = String
+        default = "NotSpecified"
         "--name"
         help = "path to saved model file"
         arg_type = String
@@ -67,10 +71,9 @@ function main()
     X_lim = args["X_lim"]
     Y_lim = args["Y_lim"]
     res = args["res"]
+    clustername = args["cname"]
 
     fact = round(Int, res/0.14)
-
-    clustername = "Ares"
 
     println("loading fits data..")
     time_loadstart = time()
@@ -92,7 +95,7 @@ function main()
     mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
     println("magnification calculated in ", time() - magstrt, " seconds.")
     
-    cluster_path = "../$(clustername)_data/$(res)/"
+    cluster_path = "../$(clustername)_data/res$(res)_thres$(thres)/"
 
     if fits_flag
 
@@ -122,9 +125,10 @@ function main()
         println("$(clustername) plots saved in ", time() - clusterplotstart, " seconds.")
     end
 
+    foldername = "$(name)_res_$(res)_thres_$(thres)"
     filename = "../Diagnostics/files/$name" * ".jld2"
     if plot_file_diag || plot_image_flag
-        mkpath("../Diagnostics/plots/$(name)_res_$(res)/")
+        mkpath("../Diagnostics/plots/$(foldername)/")
     end
 
     global prior_kappa, gridx, gridy, model, param_ref, reg_factor
@@ -207,48 +211,48 @@ function main()
         fig_magdev, axes_magdev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_magdev, gridx_finefits[:,1], gridy_finefits[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-1.0, 4.0))
         cb = Colorbar(fig_magdev[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_mag_rel_deviation.png", fig_magdev)
+        save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviation.png", fig_magdev)
 
         fig_kappadev, axes_kappadev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_kappadev, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = (-1.0, 2.0))
         cb = Colorbar(fig_kappadev[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_kappa_rel_deviation.png", fig_kappadev)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviation.png", fig_kappadev)
 
         fig_prior, axes_prior = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_prior, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_prior[1,2], hm; label = "κ_prior", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_prior_kappa_map.png", fig_prior)
+        save("../Diagnostics/plots/$(foldername)/$(name)_prior_kappa_map.png", fig_prior)
 
         fig_init, axes_init = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_init, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(fig_init[1,2], hm; label = "κ_init_guess", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_init_guess_kappa_map.png", fig_init)
+        save("../Diagnostics/plots/$(foldername)/$(name)_init_guess_kappa_map.png", fig_init)
 
         println("plotting the lens magnification/kappa maps...")
 
         """err_fig, err_axes = Lenses.plot_sky(gridx, gridy)
         hm = heatmap!(err_axes, gridx[:,1], gridy[1,:], errors, colormap = :turbo, colorrange = (0, maximum(errors)))
         cb = Colorbar(err_fig[1,2], hm; label = "δκ", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_error_map.png", err_fig)
+        save("../Diagnostics/plots/$(foldername)/$(name)_error_map.png", err_fig)
 
         rel_errors = errors ./ κ_map
         relerr_fig, relerr_axes = Lenses.plot_sky(gridx, gridy)
         hm_rel = heatmap!(relerr_axes, gridx[:,1], gridy[1,:], rel_errors, colormap = :turbo, colorrange = (0, 2))
         cb_rel = Colorbar(relerr_fig[1,2], hm_rel; label = "δκ/κ", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_relative_error_map.png", relerr_fig)"""
+        save("../Diagnostics/plots/$(foldername)/$(name)_relative_error_map.png", relerr_fig)"""
 
         fig_mag, axes_mag = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = (0, 100))
         cb = Colorbar(fig_mag[1,2], hm; label = "|μ|", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_magnification_map.png", fig_mag)
+        save("../Diagnostics/plots/$(foldername)/$(name)_magnification_map.png", fig_mag)
 
         makiepts = UtilityFunctions.add_clusterimages(model)
         scatter!(axes_mag, makiepts, color=:yellow, markersize=3)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_magnification_map_with_images.png", fig_mag)
+        save("../Diagnostics/plots/$(foldername)/$(name)_magnification_map_with_images.png", fig_mag)
 
         time_planemap_start = time()
         cc_fig, cc_axes = Lenses.plot_image_plane(free_lens_nokernel, free_qty_tuple, x_fine, y_fine, adis, two_panel = true)        # bottleneck
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_critical_curves.png", cc_fig)
+        save("../Diagnostics/plots/$(foldername)/$(name)_critical_curves.png", cc_fig)
         println("plotted the critical curves and caustics in ", time() - time_planemap_start, " seconds.")
 
         flush(stdout)
@@ -256,10 +260,10 @@ function main()
         κ_fig, κ_axes = Lenses.plot_sky(x_fine, y_fine)
         hm = heatmap!(κ_axes, x_fine[:,1], y_fine[1,:], κ_fine_, colormap = :turbo, colorrange = (0, 3.75))
         cb = Colorbar(κ_fig[1,2], hm; label = "κ", width = 20)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_kappa_map.png", κ_fig)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_map.png", κ_fig)
 
         scatter!(κ_axes, makiepts, color=:black, markersize=3)
-        save("../Diagnostics/plots/$(name)_res_$(res)/$(name)_kappa_map_with_images.png", κ_fig)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_map_with_images.png", κ_fig)
 
         println("χ² of predicted image positions: ", data["chi2"])
 
@@ -280,9 +284,9 @@ function main()
     elseif plot_image_flag
 
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(name)_res_$(res)/", thres, free_qty_tuple, freeimgqty_tuple)
+        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
         # save the rms to a text file
-        open("../Diagnostics/plots/$(name)_res_$(res)/rms.txt", "a") do io
+        open("../Diagnostics/plots/$(foldername)/rms.txt", "a") do io
             println(io, "rms of image positions with threshold = $(thres): " * string(rms))
             println(io, "χ² of predicted image positions: ", data["chi2"])
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
