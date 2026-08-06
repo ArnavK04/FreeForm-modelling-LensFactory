@@ -260,11 +260,11 @@ function plot_trace_stats(trace)
 
     fig = Figure(resolution = (1200, 800))
 
-    ax1 = Axis(fig[1, 1], xlabel = "time (s)", ylabel = "iteration")
-    ax2 = Axis(fig[1, 2], xlabel = "time (s)", ylabel = "fvalue")
-    ax3 = Axis(fig[2, 1], xlabel = "time (s)", ylabel = "g_norm")
-    ax4 = Axis(fig[2, 2], xlabel = "iteration", ylabel = "fvalue")
-    ax5 = Axis(fig[3, 1], xlabel = "iteration", ylabel = "g_norm")
+    ax1 = Axis(fig[1, 1], xlabel = "time (s)", ylabel = "iteration", yscale = :log10)
+    ax2 = Axis(fig[1, 2], xlabel = "time (s)", ylabel = "fvalue", yscale = :log10)
+    ax3 = Axis(fig[2, 1], xlabel = "time (s)", ylabel = "g_norm", yscale = :log10)
+    ax4 = Axis(fig[2, 2], xlabel = "iteration", ylabel = "fvalue", yscale = :log10)
+    ax5 = Axis(fig[3, 1], xlabel = "iteration", ylabel = "g_norm", yscale = :log10)
 
     lines!(ax1, time, iters, color = :blue)
     lines!(ax2, time, values, color = :blue)
