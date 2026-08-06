@@ -249,6 +249,32 @@ function add_clusterimages(model::LensModel.ModelConfig)
     return makie_points
 end
 
+function plot_trace_stats(trace)
+    """
+    plots stats for the trace of the run.  (:iteration, :value, :g_norm, :metadata)
+    """
+    iters = [s.iteration for s in trace]
+    values = [s.value for s in trace]
+    g_norms = [s.g_norm for s in trace]
+    time = [s.metadata["time"] for s in trace]
+
+    fig = Figure(resolution = (1200, 800))
+
+    ax1 = Axis(fig[1, 1], xlabel = "time (s)", ylabel = "iteration")
+    ax2 = Axis(fig[1, 2], xlabel = "time (s)", ylabel = "fvalue")
+    ax3 = Axis(fig[2, 1], xlabel = "time (s)", ylabel = "g_norm")
+    ax4 = Axis(fig[2, 2], xlabel = "iteration", ylabel = "fvalue")
+    ax5 = Axis(fig[3, 1], xlabel = "iteration", ylabel = "g_norm")
+
+    lines!(ax1, time, iters, color = :blue)
+    lines!(ax2, time, values, color = :blue)
+    lines!(ax3, time, g_norms, color = :blue)
+    lines!(ax4, iters, values, color = :blue)
+    lines!(ax5, iters, g_norms, color = :blue)
+
+    return fig, ax1, ax2, ax3, ax4, ax5
+end
+
 end  # module end
 
 module LikelihoodFunctions
@@ -381,32 +407,6 @@ function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, mode
         buf_p[i] = κ_vec[i]  # Reset the buffer for the next iteration
     end
     return vec(ll_grad)
-end
-
-function plot_trace_stats(trace)
-    """
-    plots stats for the trace of the run.  (:iteration, :value, :g_norm, :metadata)
-    """
-    iters = [s.iteration for s in trace]
-    values = [s.value for s in trace]
-    g_norms = [s.g_norm for s in trace]
-    time = [s.metadata["time"] for s in trace]
-
-    fig = Figure(resolution = (1200, 800))
-
-    ax1 = Axis(fig[1, 1], xlabel = "time (s)", ylabel = "iteration")
-    ax2 = Axis(fig[1, 2], xlabel = "time (s)", ylabel = "fvalue")
-    ax3 = Axis(fig[2, 1], xlabel = "time (s)", ylabel = "g_norm")
-    ax4 = Axis(fig[2, 2], xlabel = "iteration", ylabel = "fvalue")
-    ax5 = Axis(fig[3, 1], xlabel = "iteration", ylabel = "g_norm")
-
-    lines!(ax1, time, iters, color = :blue)
-    lines!(ax2, time, values, color = :blue)
-    lines!(ax3, time, g_norms, color = :blue)
-    lines!(ax4, iters, values, color = :blue)
-    lines!(ax5, iters, g_norms, color = :blue)
-
-    return fig, ax1, ax2, ax3, ax4, ax5
 end
 
 end

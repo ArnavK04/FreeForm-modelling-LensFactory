@@ -344,7 +344,7 @@ function main()
     println("Total time taken: ", time_end - time_start, " seconds.")
 
     println("plotting trace diagnostics...")
-    fig, ax1, ax2, ax3, ax4, ax5 = plot_trace_stats(traceofrun)
+    fig, ax1, ax2, ax3, ax4, ax5 = UtilityFunctions.plot_trace_stats(traceofrun)
 
     save("../Diagnostics/plots/$(foldername)/$(name)_trace_diagnostics.png", fig)
     println("done")
