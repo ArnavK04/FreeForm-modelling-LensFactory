@@ -315,7 +315,7 @@ function main()
         time_start_image = time()
         rms = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
         open(cluster_path * "rms.txt", "a") do io
-            println(io, "rms of image positions with threshold = $(thres): " * string(rms))
+            println(io, "rms of image positions with threshold using truth map from $(clustername) = $(thres): " * string(rms))
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
         end
 
@@ -328,7 +328,7 @@ function main()
         rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
         # save the rms to a text file
         open("../Diagnostics/plots/$(foldername)/rms.txt", "a") do io
-            println(io, "rms of image positions with threshold = $(thres): " * string(rms))
+            println(io, "rms of image positions with threshold using reconstructed map for $(clustername) = $(thres): " * string(rms))
             println(io, "χ² of predicted image positions: ", data["chi2"])
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
         end
@@ -336,6 +336,9 @@ function main()
     end
 
     time_end = time()
+    print("the parameters used for this run are: ")
+    println("clustername: ", clustername, ", res: ", res, ", thres: ", thres, ", X_lim: ", X_lim, ", Y_lim: ", Y_lim, ", X_lim_plot: ", X_lim_plot, ", Y_lim_plot: ", Y_lim_plot)
+    println("the input file used for this run is: ", name)
     println("Total time taken: ", time_end - time_start, " seconds.")
     
 
