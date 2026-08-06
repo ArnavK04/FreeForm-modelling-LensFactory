@@ -311,7 +311,8 @@ function main()
             show_every  = 5,
             #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
-            callback = print_ram_stats
+            callback = print_ram_stats,
+	    iterations = 5000
         ),
         #autodiff  = AutoFiniteDiff(),
     )
