@@ -312,6 +312,7 @@ function main()
             #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
             callback = print_ram_stats,
+            extended_trace = true,
 	    iterations = 5000
         ),
         #autodiff  = AutoFiniteDiff(),

@@ -263,6 +263,7 @@ using LinearAlgebra
 using CairoMakie
 using Random
 using ImageFiltering
+using Optim
 
 function neg_logprior_MEM(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: ROA, N <: ROA, T <: RV}
    """
@@ -363,23 +364,49 @@ function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, mode
     f0 = neg_loglikelihood_MEM(model, Main.FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true), param_ref, full_kernel)
         
     ll_grad = zeros(length(κ_vec))
-    buf = copy(κ_vec)
+    buf_p = copy(κ_vec)
     for i in eachindex(κ_vec)
 
         h_i = max(1e-8, abs(κ_vec[i]) * 1e-5)       # step size based on the magnitude of κ_vec[i]
 
-        buf[i] += h_i
+        buf_p[i] += h_i
 
         ll_grad[i] = (neg_loglikelihood_MEM(
             model,
-            Main.FreeFormLens.init_FreeFormLens(reshape(buf, size(gridx)), gridx, gridy, true),
+            Main.FreeFormLens.init_FreeFormLens(reshape(buf_p, size(gridx)), gridx, gridy, true),
             param_ref,
             full_kernel
         ) - f0) / h_i
 
-        buf[i] = κ_vec[i]  # Reset the buffer for the next iteration
+        buf_p[i] = κ_vec[i]  # Reset the buffer for the next iteration
     end
     return vec(ll_grad)
+end
+
+function plot_trace_stats(trace)
+    """
+    plots stats for the trace of the run.  (:iteration, :value, :g_norm, :metadata)
+    """
+    iters = [s.iteration for s in trace]
+    values = [s.value for s in trace]
+    g_norms = [s.g_norm for s in trace]
+    time = [s.metadata["time"] for s in trace]
+
+    fig = Figure(resolution = (1200, 800))
+
+    ax1 = Axis(fig[1, 1], xlabel = "time (s)", ylabel = "iteration")
+    ax2 = Axis(fig[1, 2], xlabel = "time (s)", ylabel = "fvalue")
+    ax3 = Axis(fig[2, 1], xlabel = "time (s)", ylabel = "g_norm")
+    ax4 = Axis(fig[2, 2], xlabel = "iteration", ylabel = "fvalue")
+    ax5 = Axis(fig[3, 1], xlabel = "iteration", ylabel = "g_norm")
+
+    lines!(ax1, time, iters, color = :blue)
+    lines!(ax2, time, values, color = :blue)
+    lines!(ax3, time, g_norms, color = :blue)
+    lines!(ax4, iters, values, color = :blue)
+    lines!(ax5, iters, g_norms, color = :blue)
+
+    return fig, ax1, ax2, ax3, ax4, ax5
 end
 
 end

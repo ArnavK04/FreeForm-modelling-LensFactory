@@ -7,6 +7,7 @@ using CairoMakie
 using FITSIO
 using LinearAlgebra
 using ArgParse
+using Optim
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
@@ -157,6 +158,7 @@ function main()
     prior_kappa = data["prior_kappa"]
     reg_factor = data["reg_factor"]
     init_guess = data["init_guess"]
+    traceofrun = data["trace"]
     #errors = data["errors"]
 
     param_ref = Dict(p.key => p.refer for p in model.parameters)
@@ -340,7 +342,13 @@ function main()
     println("clustername: ", clustername, ", res: ", res, ", thres: ", thres, ", X_lim: ", X_lim, ", Y_lim: ", Y_lim, ", X_lim_plot: ", X_lim_plot, ", Y_lim_plot: ", Y_lim_plot)
     println("the input file used for this run is: ", name)
     println("Total time taken: ", time_end - time_start, " seconds.")
-    
+
+    println("plotting trace diagnostics...")
+    fig, ax1, ax2, ax3, ax4, ax5 = plot_trace_stats(traceofrun)
+
+    save("../Diagnostics/plots/$(foldername)/$(name)_trace_diagnostics.png", fig)
+    println("done")
+    println("------------------------------")
 
 end
 
