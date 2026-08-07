@@ -208,8 +208,12 @@ function main()
             help = "Prior flag indicating the type of initial guess to use."
             arg_type = Int
             default = 1
-        "--prior_from_prev"
-            help = "Boolean flag to indicate if prior should be loaded from previous run."
+        "--inc_res"
+            help = "Boolean flag to indicate if resolution should be increased from previous run."
+            arg_type = Bool
+            default = false
+        "--same_res"
+            help = "Boolean flag to indicate if the same resolution should be used as previous run."
             arg_type = Bool
             default = false
         "--reg_factor"
@@ -237,12 +241,18 @@ function main()
     pix = args["pix"]
     sigma = args["sigma"]
     g_flag = args["g_flag"]
-    prior_from_prev = args["prior_from_prev"]
+    inc_res = args["inc_res"]
+    same_res = args["same_res"]
     reg_factor = args["reg_factor"]
     guess_value = args["guess_value"]
     runnumber = args["runnumber"]
     p_value = args["p_value"]
     clustername = args["cname"]
+
+    if clustername == "NotSpecified"
+        println("Cluster name not specified. Please provide a valid cluster name using the --cname argument.")
+        exit(1)
+    end
 
     model = LensModel.read_input(input_file)
     param_ref = Dict(p.key => p.refer for p in model.parameters)
@@ -258,27 +268,42 @@ function main()
     new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
 
     filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
-    filename_fromprev = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename_tosave = filename
 
     # load prior from previous run converged map and refine to a finer grid
-    if prior_from_prev
+    if inc_res || same_res
+
+        if inc_res
+            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution * 2)_$(X_LIM)_$(Y_LIM)"
+        else
+            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+        end
         data = load("../Diagnostics/files/$(filename).jld2")
         prior_kappa_ = data["κ_map"]
-        new_guess_ = data["init_guess"]
+        new_guess_ = data["κ_map"]
         gridx_ = data["gridx"]
         gridy_ = data["gridy"]
 
         res_ = gridx_[2,1] - gridx_[1,1]
         print("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
 
-        #fin_res = res_/2.0
-        fin_res = res_
+        if inc_res
+            fin_res = res_ /2.0
+        elseif same_res
+            fin_res = res_
+        end
+
         res_factor = round(Int,fin_res/res_)
 
         if res_factor != 1
             println("Refining the prior from previous run by a factor of: ", res_factor)
-            new_guess, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
-            prior_kappa, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+            new_guess__, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
+            prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+
+            # smoothening the refined grid
+            pix = 2
+            new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
+            prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
         else
             println("No refinement needed for the prior from previous run.")
             pix = 2
@@ -349,8 +374,8 @@ function main()
     println("\nFinal -ve log likelihood (approx): ", final_chi2)
     println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
 
-    if !prior_from_prev
-        jldsave("../Diagnostics/files/$(filename).jld2";
+    if inc_res || same_res
+        jldsave("../Diagnostics/files/$(filename_tosave).jld2";
             model_config = model,
             κ_map        = κ_map,
             #hessian      = hessian,
@@ -381,7 +406,7 @@ function main()
         )
 
     else 
-        jldsave("../Diagnostics/files/$(filename_fromprev).jld2";
+        jldsave("../Diagnostics/files/$(filename_tosave).jld2";
             model_config = model,
             κ_map        = κ_map,
             #hessian      = hessian,
