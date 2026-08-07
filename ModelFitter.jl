@@ -374,68 +374,35 @@ function main()
     println("\nFinal -ve log likelihood (approx): ", final_chi2)
     println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
 
-    if inc_res || same_res
-        jldsave("../Diagnostics/files/$(filename_tosave).jld2";
-            model_config = model,
-            κ_map        = κ_map,
-            #hessian      = hessian,
-            #hessian_fast = hessian_fast,
-            #errors       = errors,
-            gridx        = gridx,
-            gridy        = gridy,
-            chi2         = final_chi2,
-            neg_logpost  = neg_logpost_MEM(vec(θ_map)),
-            θ0           = θ0,
-            prior_kappa  = prior_kappa,
-            init_guess   = new_guess,
-            seed         = seed,
-            pix          = pix,
-            sigma        = sigma,
-            prior_flag   = g_flag,
-            reg_factor   = reg_factor,
-            minimum_value= Optim.minimum(result),
-            iterations   = Optim.iterations(result),
-            time_run     = Optim.time_run(result),
-            stopped_by   = result.stopped_by,
-            converged    = Optim.converged(result),
-            trace        = trace,
-            X_LIM        = X_LIM,
-            Y_LIM        = Y_LIM,
-            resolution   = resolution,
-            cluster      = clustername
-        )
-
-    else 
-        jldsave("../Diagnostics/files/$(filename_tosave).jld2";
-            model_config = model,
-            κ_map        = κ_map,
-            #hessian      = hessian,
-            #hessian_fast = hessian_fast,
-            #errors       = errors,
-            gridx        = gridx,
-            gridy        = gridy,
-            chi2         = final_chi2,
-            neg_logpost  = neg_logpost_MEM(vec(θ_map)),
-            θ0           = θ0,
-            prior_kappa  = prior_kappa,
-            init_guess   = new_guess,
-            seed         = seed,
-            pix          = pix,
-            sigma        = sigma,
-            prior_flag   = g_flag,
-            reg_factor   = reg_factor,
-            minimum_value= Optim.minimum(result),
-            iterations   = Optim.iterations(result),
-            time_run     = Optim.time_run(result),
-            stopped_by   = result.stopped_by,
-            converged    = Optim.converged(result),
-            trace        = trace,
-            X_LIM        = X_LIM,
-            Y_LIM        = Y_LIM,
-            resolution   = resolution,
-            cluster      = clustername
-        )
-    end
+    jldsave("../Diagnostics/files/$(filename_tosave).jld2";
+        model_config = model,
+        κ_map        = κ_map,
+        #hessian      = hessian,
+        #hessian_fast = hessian_fast,
+        #errors       = errors,
+        gridx        = gridx,
+        gridy        = gridy,
+        chi2         = final_chi2,
+        neg_logpost  = neg_logpost_MEM(vec(θ_map)),
+        θ0           = θ0,
+        prior_kappa  = prior_kappa,
+        init_guess   = new_guess,
+        seed         = seed,
+        pix          = pix,
+        sigma        = sigma,
+        prior_flag   = g_flag,
+        reg_factor   = reg_factor,
+        minimum_value= Optim.minimum(result),
+        iterations   = Optim.iterations(result),
+        time_run     = Optim.time_run(result),
+        stopped_by   = result.stopped_by,
+        converged    = Optim.converged(result),
+        trace        = trace,
+        X_LIM        = X_LIM,
+        Y_LIM        = Y_LIM,
+        resolution   = resolution,
+        cluster      = clustername
+    )
 
     t3 = time()
     println("Time taken for optimization: ", t1 - t0, " seconds")
