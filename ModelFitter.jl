@@ -274,7 +274,7 @@ function main()
     if inc_res || same_res
 
         if inc_res
-            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution * 2)_$(X_LIM)_$(Y_LIM)"
+            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution / 2)_$(X_LIM)_$(Y_LIM)"
         else
             filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
         end
@@ -294,6 +294,7 @@ function main()
         end
 
         res_factor = round(Int,fin_res/res_)
+        println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
 
         if res_factor != 1
             println("Refining the prior from previous run by a factor of: ", res_factor)
