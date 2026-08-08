@@ -301,7 +301,7 @@ function main()
             println("Refining the prior from previous run by a factor of: ", res_factor)
             new_guess__, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
             prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
-
+            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
             # smoothening the refined grid
             pix = 1
             new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
