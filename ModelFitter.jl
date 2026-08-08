@@ -302,12 +302,12 @@ function main()
             prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
 
             # smoothening the refined grid
-            pix = 2
+            pix = 1
             new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
         else
             println("No refinement needed for the prior from previous run.")
-            pix = 2
+            pix = 1
             new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
             gridx = gridx_
