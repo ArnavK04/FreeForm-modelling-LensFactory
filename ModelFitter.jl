@@ -285,7 +285,7 @@ function main()
         gridy_ = data["gridy"]
 
         res_ = gridx_[2,1] - gridx_[1,1]
-        print("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
+        println("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
 
         if inc_res
             fin_res = res_ /2.0
@@ -293,7 +293,7 @@ function main()
             fin_res = res_
         end
 
-        res_factor = round(Int,fin_res/res_)
+        res_factor = round(Int,res_/fin_res)
         println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
 
         if res_factor != 1
@@ -305,6 +305,10 @@ function main()
             pix = 1
             new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
+            println("new_guess__ finite: ", all(isfinite, new_guess__))
+            println("prior_kappa__ finite: ", all(isfinite, prior_kappa__))
+            println("new_guess finite: ", all(isfinite, new_guess))
+            println("prior_kappa finite: ", all(isfinite, prior_kappa))
         else
             println("No refinement needed for the prior from previous run.")
             pix = 1
@@ -318,6 +322,29 @@ function main()
 
     κ0 = vec(new_guess)
     θ0 = log.(κ0)  # Initial guess in θ space
+
+    println("========== INITIAL TEST ==========")
+
+    println("θ0:")
+    println("  size   = ", size(θ0))
+    println("  range  = ", extrema(θ0))
+    println("  finite = ", all(isfinite, θ0))
+
+    f0 = neg_logpost_MEM(θ0)
+
+    println("Objective:")
+    println("  value  = ", f0)
+    println("  finite = ", isfinite(f0))
+
+    g0 = zeros(length(θ0))
+    logpost_grad!(g0, θ0)
+
+    println("Gradient:")
+    println("  range  = ", extrema(g0))
+    println("  finite = ", all(isfinite, g0))
+    println("  norm   = ", norm(g0))
+
+    println("==================================")
 
     # testing grad provided by finitediff module
     function g!(grad_vec_θ, θ_vec)
