@@ -77,6 +77,8 @@ function main()
     plot_image_flag = args["plot_image_flag"]
     plot_image_flag_og = args["plot_image_flag_og"]
     thres = args["thres"]
+    X_lim = args["X_lim"]
+    Y_lim = args["Y_lim"]
     X_lim_plot = args["X_lim_plot"]
     Y_lim_plot = args["Y_lim_plot"]
     res = args["res"]
@@ -159,8 +161,6 @@ function main()
     traceofrun = data["trace"]
     gridx = data["gridx"]
     gridy = data["gridy"]
-    X_lim = data["X_LIM"]
-    Y_lim = data["Y_LIM"]
     #errors = data["errors"]
 
     param_ref = Dict(p.key => p.refer for p in model.parameters)
