@@ -77,8 +77,6 @@ function main()
     plot_image_flag = args["plot_image_flag"]
     plot_image_flag_og = args["plot_image_flag_og"]
     thres = args["thres"]
-    X_lim = args["X_lim"]
-    Y_lim = args["Y_lim"]
     X_lim_plot = args["X_lim_plot"]
     Y_lim_plot = args["Y_lim_plot"]
     res = args["res"]
@@ -159,6 +157,10 @@ function main()
     reg_factor = data["reg_factor"]
     init_guess = data["init_guess"]
     traceofrun = data["trace"]
+    gridx = data["gridx"]
+    gridy = data["gridy"]
+    X_lim = data["X_LIM"]
+    Y_lim = data["Y_LIM"]
     #errors = data["errors"]
 
     param_ref = Dict(p.key => p.refer for p in model.parameters)
@@ -173,8 +175,7 @@ function main()
     Ds = Cosmology.angular_diameter_distance(cosmo, 0.0, zs)
     adis = Dds / Ds
 
-    # making the grid
-    gridx, gridy = UtilityFunctions.make_gridfrom_model(model)
+
     println("size of gridx: ", size(gridx))
     println("size of gridy: ", size(gridy))
 
