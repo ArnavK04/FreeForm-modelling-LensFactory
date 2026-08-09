@@ -232,6 +232,10 @@ function main()
             help = "Prior value used in constructing the prior map."
             arg_type = Float64
             default = 0.5
+        "--prevfile"
+            help = "Path to the previous file containing the converged map."
+            arg_type = String
+            default = nothing
     end
 
     args = parse_args(settings)
@@ -248,6 +252,7 @@ function main()
     runnumber = args["runnumber"]
     p_value = args["p_value"]
     clustername = args["cname"]
+    prevfile = args["prevfile"]
 
     if clustername == "NotSpecified"
         println("Cluster name not specified. Please provide a valid cluster name using the --cname argument.")
@@ -271,14 +276,13 @@ function main()
     filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
     filename_tosave = filename
 
+    if !isnothing(prevfile)
+        filename = prevfile
+    end
+
     # load prior from previous run converged map and refine to a finer grid
     if inc_res || same_res
 
-        if inc_res
-            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution / 2)_$(X_LIM)_$(Y_LIM)"
-        else
-            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(resolution)_$(X_LIM)_$(Y_LIM)"
-        end
         data = load("../Diagnostics/files/$(filename).jld2")
         prior_kappa_ = data["κ_map"]
         new_guess_ = data["κ_map"]
@@ -286,12 +290,20 @@ function main()
         gridy_ = data["gridy"]
 
         res_ = gridx_[2,1] - gridx_[1,1]
+        X_LIM = gridx_[end,1]
+        Y_LIM = gridy_[1,end]
         println("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
 
         if inc_res
             fin_res = res_ /2.0
         elseif same_res
             fin_res = res_
+        end
+
+        if inc_res
+            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res / 2)_$(X_LIM)_$(Y_LIM)"
+        else
+            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
         end
 
         res_factor = round(Int,res_/fin_res)
@@ -314,6 +326,7 @@ function main()
             prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
             gridx = gridx_
             gridy = gridy_
+            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
         end
         println("loaded prior from previous run and refined to a finer grid with resolution: ", fin_res, " arcsec/pixel")
     end
