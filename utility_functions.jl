@@ -13,6 +13,7 @@ using Statistics
 function refine_map(map_coarse::M, gridx::M, gridy::M, new_grid_limx::T, new_grid_limy::T, resolution::T, order::Int) where {T <:RV, M <: ROA}
     """
     Uses Bicubic (now linear) interpolation to return a higher res map of the convergence κ.
+    The final grid will be have FOV = [2 * new_grid_limx,2 * new_grid_limy] and resolution = resolution.
     """
     x_nodes = range(gridx[1, 1], stop=gridx[end, 1], length=size(gridx, 2))
     y_nodes = range(gridy[1, 1], stop=gridy[1, end], length=size(gridy, 1))
@@ -115,7 +116,7 @@ function make_gridfrom_model(model::LensModel.ModelConfig)
     """
     X_max, Y_max = model.observation.FOV
     pixel_scale = model.observation.pixel_scale
-    gridx, gridy = Lenses.get_meshgrid(X_max, Y_max, pixel_scale)
+    gridx, gridy = Lenses.get_meshgrid(0.5 * X_max, 0.5 * Y_max, pixel_scale)
 
     return gridx, gridy
 end
@@ -339,7 +340,7 @@ function construct_prior(model::ModelConfig; prior_flag::Int = 1, prior_value::R
 
     X_max, Y_max = model.observation.FOV
     pixel_scale = model.observation.pixel_scale
-    gridx, gridy = Lenses.get_meshgrid(X_max, Y_max, pixel_scale)
+    gridx, gridy = Lenses.get_meshgrid(0.5 * X_max, 0.5 * Y_max, pixel_scale)
 
     if prior_flag == 1
         prior_kappa = fill(prior_value, size(gridx))
