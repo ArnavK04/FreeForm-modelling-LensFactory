@@ -300,11 +300,7 @@ function main()
             fin_res = res_
         end
 
-        if inc_res
-            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res / 2)_$(X_LIM)_$(Y_LIM)"
-        else
-            filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
-        end
+        filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
 
         res_factor = round(Int,res_/fin_res)
         println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
