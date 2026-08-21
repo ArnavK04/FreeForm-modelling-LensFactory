@@ -807,14 +807,14 @@ function give_kernel_threaded(θx::T, θy::T, gridx::M, gridy::M) where {T <: RO
     cell_size = gridx[2] - gridx[1]
     n1, n2 = size(gridx, 1), size(gridx, 2)
 
-    @inbounds Threads.@threads for k in ax3
+    @inbounds for k in ax3
         k_integral = zeros(n1, n2)
         k_dx       = zeros(n1, n2)
         k_dy       = zeros(n1, n2)
         k_dxx      = zeros(n1, n2)
         k_dyy      = zeros(n1, n2)
         k_dxy      = zeros(n1, n2)
-        @inbounds for j in ax2
+        @inbounds Threads.@threads for j in ax2
             @inbounds for i in ax1
                 xc, yc = gridx[i, 1], gridy[1, j]
                 k_integral[i,j] = definite_integral(θx[k], θy[k], xc, yc, cell_size)
