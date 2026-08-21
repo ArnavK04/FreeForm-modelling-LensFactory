@@ -770,7 +770,7 @@ But need to make sure this function is called everytime the image positions are 
 free-form modelling. For general purpose lensing, use the original functions. 
 """
 
-function give_kernel(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+function give_kernel_serial(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
     output_array = Vector{NTuple{6, Matrix{Float64}}}(undef, length(θx))
     ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
@@ -800,7 +800,7 @@ function give_kernel(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: R
     return output_array
 end
 
-function give_kernel_threaded(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+function give_kernel(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
     output_array = Vector{NTuple{6, Matrix{Float64}}}(undef, length(θx))
     ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
