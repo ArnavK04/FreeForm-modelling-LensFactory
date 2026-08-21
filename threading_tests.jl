@@ -16,7 +16,7 @@ include("FreeFormLens.jl")  # Adjust the path as necessary
 # ---------------------------------------------------------------------
 Random.seed!(42)   # reproducible test data
 
-gridx, gridy = Lenses.get_meshgrid(168, 168, 1)
+gridx, gridy = Lenses.get_meshgrid(70, 70, 0.2)
 
 n_sources = 100
 θx_test = 50 .* randn(n_sources)
