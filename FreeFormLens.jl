@@ -2,7 +2,6 @@ module FreeFormLens
 
 using LensFactory
 using LensFactory.Constants
-using Trapz
 using CairoMakie
 using LensFactory.LFUtils
 
@@ -779,6 +778,36 @@ function give_kernel(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: R
     n1, n2 = size(gridx, 1), size(gridx, 2)
 
     @inbounds for k in ax3
+        k_integral = zeros(n1, n2)
+        k_dx       = zeros(n1, n2)
+        k_dy       = zeros(n1, n2)
+        k_dxx      = zeros(n1, n2)
+        k_dyy      = zeros(n1, n2)
+        k_dxy      = zeros(n1, n2)
+        @inbounds for j in ax2
+            @inbounds for i in ax1
+                xc, yc = gridx[i, 1], gridy[1, j]
+                k_integral[i,j] = definite_integral(θx[k], θy[k], xc, yc, cell_size)
+                k_dx[i,j]       = definite_deriv_x(θx[k], θy[k], xc, yc, cell_size)
+                k_dy[i,j]       = definite_deriv_y(θx[k], θy[k], xc, yc, cell_size)
+                k_dxx[i,j]      = definite_deriv_xx(θx[k], θy[k], xc, yc, cell_size)
+                k_dyy[i,j]      = definite_deriv_yy(θx[k], θy[k], xc, yc, cell_size)
+                k_dxy[i,j]      = definite_deriv_xy(θx[k], θy[k], xc, yc, cell_size)
+            end
+        end
+        output_array[k] = (k_integral, k_dx, k_dy, k_dxx, k_dyy, k_dxy)
+    end
+    return output_array
+end
+
+function give_kernel_threaded(θx::T, θy::T, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+
+    output_array = Vector{NTuple{6, Matrix{Float64}}}(undef, length(θx))
+    ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
+    cell_size = gridx[2] - gridx[1]
+    n1, n2 = size(gridx, 1), size(gridx, 2)
+
+    @inbounds Threads.@threads for k in ax3
         k_integral = zeros(n1, n2)
         k_dx       = zeros(n1, n2)
         k_dy       = zeros(n1, n2)
