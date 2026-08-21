@@ -32,8 +32,8 @@ end
 # ---------------------------------------------------------------------
 println("\n--- Correctness check ---")
 
-result_serial   = FreeFormLens.give_kernel(θx_test, θy_test, gridx, gridy)
-result_threaded = FreeFormLens.give_kernel_threaded(θx_test, θy_test, gridx, gridy)
+result_serial   = FreeFormLens.give_kernel_serial(θx_test, θy_test, gridx, gridy)
+result_threaded = FreeFormLens.give_kernel(θx_test, θy_test, gridx, gridy)
 
 @testset "give_kernel: serial vs threaded" begin
     @test length(result_serial) == length(result_threaded)
@@ -48,7 +48,7 @@ end
 println("\nRunning ", 10, " repeated trials to check for race conditions...")
 all_match = true
 for trial in 1:10
-    r = FreeFormLens.give_kernel_threaded(θx_test, θy_test, gridx, gridy)
+    r = FreeFormLens.give_kernel(θx_test, θy_test, gridx, gridy)
     match = all(result_serial[k][f] ≈ r[k][f] for k in eachindex(r), f in 1:6)
     global all_match &= match
     print(match ? "." : "X")
@@ -61,8 +61,8 @@ println(all_match ? "All trials matched serial result. PASS" : "Mismatch detecte
 # ---------------------------------------------------------------------
 println("\n--- Speed check ---")
 
-b_serial   = @benchmark FreeFormLens.give_kernel($θx_test, $θy_test, $gridx, $gridy)
-b_threaded = @benchmark FreeFormLens.give_kernel_threaded($θx_test, $θy_test, $gridx, $gridy)
+b_serial   = @benchmark FreeFormLens.give_kernel_serial($θx_test, $θy_test, $gridx, $gridy)
+b_threaded = @benchmark FreeFormLens.give_kernel($θx_test, $θy_test, $gridx, $gridy)
 
 println("\nSerial:")
 show(stdout, MIME"text/plain"(), b_serial)
@@ -80,7 +80,7 @@ println("Threaded allocations: $(b_threaded.allocs), $(b_threaded.memory) bytes"
 println("\n--- Size sweep ---")
 for n in [10, 50, 100, 500]
     θx_n, θy_n = 50 .* randn(n), 50 .* randn(n)
-    t_s = @belapsed FreeFormLens.give_kernel($θx_n, $θy_n, $gridx, $gridy)
-    t_t = @belapsed FreeFormLens.give_kernel_threaded($θx_n, $θy_n, $gridx, $gridy)
+    t_s = @belapsed FreeFormLens.give_kernel_serial($θx_n, $θy_n, $gridx, $gridy)
+    t_t = @belapsed FreeFormLens.give_kernel($θx_n, $θy_n, $gridx, $gridy)
     println("n=$n:  serial=$(round(t_s*1000, digits=2))ms  threaded=$(round(t_t*1000, digits=2))ms  speedup=$(round(t_s/t_t, digits=2))x")
 end
