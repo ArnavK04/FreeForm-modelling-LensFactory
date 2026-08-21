@@ -94,6 +94,7 @@ function main()
     gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
     println("$(clustername) data loaded in ", time() - time_loadstart, " seconds.")
 
+    flush(stdout)
     println("interpolating...")
     # interpolate to a particular grid
     order = 3  # cubic interpolation
@@ -105,7 +106,8 @@ function main()
     println("interpolation done in ", magstrt - refinestart, " seconds.")
     mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
     println("magnification calculated in ", time() - magstrt, " seconds.")
-    
+    flush(stdout)
+
     cluster_path = "../$(clustername)_data/res$(res)_thres$(thres)/"
 
     if fits_flag
@@ -142,6 +144,8 @@ function main()
         save(cluster_path * "mag_finefits.png", fig_)
 
         println("$(clustername) plots saved in ", time() - clusterplotstart, " seconds.")
+
+        flush(stdout)
     end
 
     foldername = "$(name)_res_$(res)_thres_$(thres)"
@@ -186,6 +190,8 @@ function main()
     init_guess_fine, _, _ = UtilityFunctions.refine_map(init_guess, gridx, gridy, X_lim, Y_lim, res, order)
     println("refining the optimal maps done in ", time() - obsrefinestart, " seconds.")
 
+    flush(stdout)
+
     # initialize the lens
     initlenstime = time()
     free_lens_nokernel = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine, false)
@@ -200,7 +206,7 @@ function main()
         clusterimgqty_tuple = (ψ_cluster, αx_cluster, αy_cluster, A_cluster)
     end
     println("Lens initialized in ", time() - initlenstime, " seconds.")
-
+    flush(stdout)
     # calculate the lens quantities over the whole grid
     lensqtystart = time()
     ψ_free = Lenses.get_potential(free_lens, x_fine, y_fine)
