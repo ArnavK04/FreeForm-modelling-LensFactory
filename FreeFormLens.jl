@@ -98,10 +98,20 @@ function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
    cell_size = gridx[2] - gridx[1]
+
+   definite_integral_m = zeros(size(gridx, 1), size(gridx, 2))
+
+   @inbounds Threads.@threads for j in ax2
+      @inbounds for i in ax1
+         xc, yc = gridx[i, 1], gridy[1, j]
+         definite_integral_m[i,j] = definite_integral(θx, θy, xc, yc, cell_size)
+      end
+   end
+
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψ_up += κ[i, j] * definite_integral(θx, θy, xc, yc, cell_size)
+         ψ_up += κ[i, j] * definite_integral_m[i,j]
       end
    end
    ψ += (1/π) * ψ_up
@@ -111,12 +121,26 @@ end
 
 function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
-   ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
    cell_size = gridx[2] - gridx[1]
-   @inbounds for j in ax2
-      @inbounds for i in ax1
-         xc, yc = gridx[i, 1], gridy[1, j]
-         ψ .= ψ .+ (1/π) .* κ[i, j] .* definite_integral.(θx, θy, xc, yc, cell_size)
+
+   definite_integral_m = zeros(size(gridx, 1), size(gridx, 2), length(θx))
+
+   @inbounds for k in ax3
+      @inbounds Threads.@threads for j in ax2
+         @inbounds for i in ax1
+            xc, yc = gridx[i, 1], gridy[1, j]
+            definite_integral_m[i,j,k] = definite_integral(θx[k], θy[k], xc, yc, cell_size)
+         end
+      end
+   end
+
+   @inbounds for k in ax3
+      @inbounds for j in ax2
+         @inbounds for i in ax1
+            xc, yc = gridx[i, 1], gridy[1, j]
+            ψ[k] = ψ[k] + (1/π) * κ[i, j] * definite_integral_m[i,j,k]
+         end
       end
    end
 
@@ -162,12 +186,22 @@ function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) 
 
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
    cell_size = gridx[2] - gridx[1]
+
+   definite_deriv_x_m, definite_deriv_y_m = zeros(size(gridx, 1), size(gridx, 2)), zeros(size(gridx, 1), size(gridx, 2))
+
+   @inbounds Threads.@threads for j in ax2
+      @inbounds for i in ax1
+         xc, yc = gridx[i, 1], gridy[1, j]
+         definite_deriv_x_m[i,j] = definite_deriv_x(θx, θy, xc, yc, cell_size)
+         definite_deriv_y_m[i,j] = definite_deriv_y(θx, θy, xc, yc, cell_size)
+      end
+   end
    
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψx_up += κ[i, j] * definite_deriv_x(θx, θy, xc, yc, cell_size)
-         ψy_up += κ[i, j] * definite_deriv_y(θx, θy, xc, yc, cell_size)
+         ψx_up += κ[i, j] * definite_deriv_x_m[i,j]
+         ψy_up += κ[i, j] * definite_deriv_y_m[i,j]
       end
    end
    ψx += (1/π) * ψx_up
@@ -178,14 +212,28 @@ end
 
 function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
-   ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
    cell_size = gridx[2] - gridx[1]
 
-   @inbounds for j in ax2
-      @inbounds for i in ax1
-         xc, yc = gridx[i, 1], gridy[1, j]
-         ψx .= ψx .+ (1/π) .* κ[i, j] .* definite_deriv_x.(θx, θy, xc, yc, cell_size)
-         ψy .= ψy .+ (1/π) .* κ[i, j] .* definite_deriv_y.(θx, θy, xc, yc, cell_size)
+   definite_deriv_x_m, definite_deriv_y_m = zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx))
+
+   @inbounds for k in ax3
+      @inbounds Threads.@threads for j in ax2
+         @inbounds for i in ax1
+            xc, yc = gridx[i, 1], gridy[1, j]
+            definite_deriv_x_m[i,j,k] = definite_deriv_x(θx[k], θy[k], xc, yc, cell_size)
+            definite_deriv_y_m[i,j,k] = definite_deriv_y(θx[k], θy[k], xc, yc, cell_size)
+         end
+      end
+   end
+
+   @inbounds for k in ax3
+      @inbounds for j in ax2
+         @inbounds for i in ax1
+            xc, yc = gridx[i, 1], gridy[1, j]
+            ψx[k] = ψx[k] + (1/π) * κ[i, j] * definite_deriv_x_m[i,j,k]
+            ψy[k] = ψy[k] + (1/π) * κ[i, j] * definite_deriv_y_m[i,j,k]
+         end
       end
    end
 
@@ -231,12 +279,23 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
    ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
    cell_size = gridx[2] - gridx[1]
 
+   definite_deriv_xx_m, definite_deriv_yy_m, definite_deriv_xy_m = zeros(size(gridx, 1), size(gridx, 2)), zeros(size(gridx, 1), size(gridx, 2)), zeros(size(gridx, 1), size(gridx, 2))
+
+   @inbounds Threads.@threads for j in ax2
+      @inbounds for i in ax1
+         xc, yc = gridx[i, 1], gridy[1, j]
+         definite_deriv_xx_m[i,j] = definite_deriv_xx(θx, θy, xc, yc, cell_size)
+         definite_deriv_yy_m[i,j] = definite_deriv_yy(θx, θy, xc, yc, cell_size)
+         definite_deriv_xy_m[i,j] = definite_deriv_xy(θx, θy, xc, yc, cell_size)
+      end
+   end
+
    @inbounds for j in ax2
       @inbounds for i in ax1
          xc, yc = gridx[i, 1], gridy[1, j]
-         ψxx_up += κ[i, j] * definite_deriv_xx(θx, θy, xc, yc, cell_size)
-         ψyy_up += κ[i, j] * definite_deriv_yy(θx, θy, xc, yc, cell_size)
-         ψxy_up += κ[i, j] * definite_deriv_xy(θx, θy, xc, yc, cell_size)
+         ψxx_up += κ[i, j] * definite_deriv_xx_m[i,j]
+         ψyy_up += κ[i, j] * definite_deriv_yy_m[i,j]
+         ψxy_up += κ[i, j] * definite_deriv_xy_m[i,j]
       end
    end
    ψxx += (1/π) * ψxx_up
@@ -248,15 +307,29 @@ end
 
 function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
    
-   ax1, ax2 = axes(gridx, 1), axes(gridx, 2)
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
    cell_size = gridx[2] - gridx[1]
-   
-   @inbounds for j in ax2
-      @inbounds for i in ax1
-         xc, yc = gridx[i, 1], gridy[1, j]
-         ψxx .= ψxx .+ (1/π) .* κ[i, j] .* definite_deriv_xx.(θx, θy, xc, yc, cell_size)
-         ψyy .= ψyy .+ (1/π) .* κ[i, j] .* definite_deriv_yy.(θx, θy, xc, yc, cell_size)
-         ψxy .= ψxy .+ (1/π) .* κ[i, j] .* definite_deriv_xy.(θx, θy, xc, yc, cell_size)
+
+   definite_deriv_xx_m, definite_deriv_yy_m, definite_deriv_xy_m = zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx))
+
+   @inbounds for k in ax3
+      @inbounds Threads.@threads for j in ax2
+         @inbounds for i in ax1
+            xc, yc = gridx[i, 1], gridy[1, j]
+            definite_deriv_xx_m[i,j,k] = definite_deriv_xx(θx[k], θy[k], xc, yc, cell_size)
+            definite_deriv_yy_m[i,j,k] = definite_deriv_yy(θx[k], θy[k], xc, yc, cell_size)
+            definite_deriv_xy_m[i,j,k] = definite_deriv_xy(θx[k], θy[k], xc, yc, cell_size)
+         end
+      end
+   end
+
+   @inbounds for k in ax3
+      @inbounds for j in ax2
+         @inbounds for i in ax1
+            ψxx[k] += κ[i, j] * definite_deriv_xx_m[i,j,k]
+            ψyy[k] += κ[i, j] * definite_deriv_yy_m[i,j,k]
+            ψxy[k] += κ[i, j] * definite_deriv_xy_m[i,j,k]
+         end
       end
    end
 
@@ -659,7 +732,7 @@ function LensFactory.Lenses.plot_image_plane(lens::Lenses.AbstractLens,gridqty_t
 
       if source !== nothing
          # Get the image positions
-         image = Lenses.get_image(lens, gridqty_tuple, θx, θy, adis, source)
+         image = Lenses.get_image(gridqty_tuple, θx, θy, adis, source)
 
          if isa(source, NTuple{2, RV})
             scatter!(ax, source[1], source[2], color=source_kws.color, markersize=source_kws.markersize, marker=source_kws.marker)
