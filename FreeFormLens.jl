@@ -212,17 +212,20 @@ end
 
 function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
-   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
    cell_size = gridx[2] - gridx[1]
 
-   definite_deriv_x_m, definite_deriv_y_m = zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx))
+   definite_deriv_x_m, definite_deriv_y_m = zeros(size(gridx, 1), size(gridx, 2), length(θx_flat)), zeros(size(gridx, 1), size(gridx, 2), length(θx_flat))
 
    @inbounds for k in ax3
       @inbounds Threads.@threads for j in ax2
          @inbounds for i in ax1
             xc, yc = gridx[i, 1], gridy[1, j]
-            definite_deriv_x_m[i,j,k] = definite_deriv_x(θx[k], θy[k], xc, yc, cell_size)
-            definite_deriv_y_m[i,j,k] = definite_deriv_y(θx[k], θy[k], xc, yc, cell_size)
+            definite_deriv_x_m[i,j,k] = definite_deriv_x(θx_flat[k], θy_flat[k], xc, yc, cell_size)
+            definite_deriv_y_m[i,j,k] = definite_deriv_y(θx_flat[k], θy_flat[k], xc, yc, cell_size)
          end
       end
    end
@@ -236,6 +239,9 @@ function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) 
          end
       end
    end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
 
    return nothing
 end
@@ -307,18 +313,21 @@ end
 
 function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
    
-   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
    cell_size = gridx[2] - gridx[1]
 
-   definite_deriv_xx_m, definite_deriv_yy_m, definite_deriv_xy_m = zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx)), zeros(size(gridx, 1), size(gridx, 2), length(θx))
+   definite_deriv_xx_m, definite_deriv_yy_m, definite_deriv_xy_m = zeros(size(gridx, 1), size(gridx, 2), length(θx_flat)), zeros(size(gridx, 1), size(gridx, 2), length(θx_flat)), zeros(size(gridx, 1), size(gridx, 2), length(θx_flat))
 
    @inbounds for k in ax3
       @inbounds Threads.@threads for j in ax2
          @inbounds for i in ax1
             xc, yc = gridx[i, 1], gridy[1, j]
-            definite_deriv_xx_m[i,j,k] = definite_deriv_xx(θx[k], θy[k], xc, yc, cell_size)
-            definite_deriv_yy_m[i,j,k] = definite_deriv_yy(θx[k], θy[k], xc, yc, cell_size)
-            definite_deriv_xy_m[i,j,k] = definite_deriv_xy(θx[k], θy[k], xc, yc, cell_size)
+            definite_deriv_xx_m[i,j,k] = definite_deriv_xx(θx_flat[k], θy_flat[k], xc, yc, cell_size)
+            definite_deriv_yy_m[i,j,k] = definite_deriv_yy(θx_flat[k], θy_flat[k], xc, yc, cell_size)
+            definite_deriv_xy_m[i,j,k] = definite_deriv_xy(θx_flat[k], θy_flat[k], xc, yc, cell_size)
          end
       end
    end
@@ -326,12 +335,15 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
    @inbounds for k in ax3
       @inbounds for j in ax2
          @inbounds for i in ax1
-            ψxx[k] += κ[i, j] * definite_deriv_xx_m[i,j,k]
-            ψyy[k] += κ[i, j] * definite_deriv_yy_m[i,j,k]
-            ψxy[k] += κ[i, j] * definite_deriv_xy_m[i,j,k]
+            ψxx[k] += (1/π) * κ[i, j] * definite_deriv_xx_m[i,j,k]
+            ψyy[k] += (1/π) * κ[i, j] * definite_deriv_yy_m[i,j,k]
+            ψxy[k] += (1/π) * κ[i, j] * definite_deriv_xy_m[i,j,k]
          end
       end
    end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
 
    return nothing
 end
