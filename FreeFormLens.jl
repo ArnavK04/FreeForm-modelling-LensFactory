@@ -121,16 +121,19 @@ end
 
 function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
-   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx, 1)
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
    cell_size = gridx[2] - gridx[1]
 
-   definite_integral_m = zeros(size(gridx, 1), size(gridx, 2), length(θx))
+   definite_integral_m = zeros(size(gridx, 1), size(gridx, 2), length(θx_flat))
 
    @inbounds for k in ax3
       @inbounds Threads.@threads for j in ax2
          @inbounds for i in ax1
             xc, yc = gridx[i, 1], gridy[1, j]
-            definite_integral_m[i,j,k] = definite_integral(θx[k], θy[k], xc, yc, cell_size)
+            definite_integral_m[i,j,k] = definite_integral(θx_flat[k], θy_flat[k], xc, yc, cell_size)
          end
       end
    end
@@ -143,6 +146,9 @@ function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <
          end
       end
    end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
 
    return nothing
 end
