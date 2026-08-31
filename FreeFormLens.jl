@@ -119,7 +119,7 @@ function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <
    return ψ
 end
 
-function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+"""function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
    θx_flat, θy_flat = vec(θx), vec(θy)
    θx_shape, θy_shape = size(θx), size(θy)
@@ -145,6 +145,43 @@ function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <
             ψ[k] = ψ[k] + (1/π) * κ[i, j] * definite_integral_m[i,j,k]
          end
       end
+   end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
+
+   return nothing
+end"""
+
+function potential!(ψ::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
+   cell_size = gridx[2] - gridx[1]
+
+   @inbounds for k in ax3
+      θxk, θyk = θx_flat[k], θy_flat[k]
+
+      # split ax2 (grid columns) into at most nthreads() chunks
+      chunks = Iterators.partition(ax2, cld(length(ax2), Threads.nthreads()))
+
+      tasks = map(chunks) do chunk
+         Threads.@spawn begin
+            local_sum = 0.0
+            @inbounds for j in chunk
+               @inbounds for i in ax1
+                  xc, yc = gridx[i, 1], gridy[1, j]
+                  local_sum += κ[i, j] * definite_integral(θxk, θyk, xc, yc, cell_size)
+               end
+            end
+            local_sum
+         end
+      end
+
+      chunk_sums = fetch.(tasks)
+      ψ[k] += (1/π) * sum(chunk_sums)
    end
 
    θx = reshape(θx_flat, θx_shape)
@@ -216,7 +253,7 @@ function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) 
    return ψx, ψy
 end
 
-function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+"""function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
 
    θx_flat, θy_flat = vec(θx), vec(θy)
    θx_shape, θy_shape = size(θx), size(θy)
@@ -244,6 +281,44 @@ function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) 
             ψy[k] = ψy[k] + (1/π) * κ[i, j] * definite_deriv_y_m[i,j,k]
          end
       end
+   end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
+
+   return nothing
+end"""
+
+function deflection!(ψx::T, ψy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
+   cell_size = gridx[2] - gridx[1]
+
+   @inbounds for k in ax3
+      θxk, θyk = θx_flat[k], θy_flat[k]
+
+      chunks = Iterators.partition(ax2, cld(length(ax2), Threads.nthreads()))
+
+      tasks = map(chunks) do chunk
+         Threads.@spawn begin
+            local_sum_x, local_sum_y = 0.0, 0.0
+            @inbounds for j in chunk
+               @inbounds for i in ax1
+                  xc, yc = gridx[i, 1], gridy[1, j]
+                  local_sum_x += κ[i, j] * definite_deriv_x(θxk, θyk, xc, yc, cell_size)
+                  local_sum_y += κ[i, j] * definite_deriv_y(θxk, θyk, xc, yc, cell_size)
+               end
+            end
+            (local_sum_x, local_sum_y)
+         end
+      end
+
+      chunk_sums = fetch.(tasks)
+      ψx[k] += (1/π) * sum(first(t) for t in chunk_sums)
+      ψy[k] += (1/π) * sum(last(t) for t in chunk_sums)
    end
 
    θx = reshape(θx_flat, θx_shape)
@@ -317,7 +392,7 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
    return ψxx, ψyy, ψxy
 end
 
-function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+"""function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
    
    θx_flat, θy_flat = vec(θx), vec(θy)
    θx_shape, θy_shape = size(θx), size(θy)
@@ -346,6 +421,46 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
             ψxy[k] += (1/π) * κ[i, j] * definite_deriv_xy_m[i,j,k]
          end
       end
+   end
+
+   θx = reshape(θx_flat, θx_shape)
+   θy = reshape(θy_flat, θy_shape)
+
+   return nothing
+end"""
+
+function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, gridy::M) where {T <: ROA, M <: ROA}
+
+   θx_flat, θy_flat = vec(θx), vec(θy)
+   θx_shape, θy_shape = size(θx), size(θy)
+
+   ax1, ax2, ax3 = axes(gridx, 1), axes(gridx, 2), axes(θx_flat, 1)
+   cell_size = gridx[2] - gridx[1]
+
+   @inbounds for k in ax3
+      θxk, θyk = θx_flat[k], θy_flat[k]
+
+      chunks = Iterators.partition(ax2, cld(length(ax2), Threads.nthreads()))
+
+      tasks = map(chunks) do chunk
+         Threads.@spawn begin
+            local_xx, local_yy, local_xy = 0.0, 0.0, 0.0
+            @inbounds for j in chunk
+               @inbounds for i in ax1
+                  xc, yc = gridx[i, 1], gridy[1, j]
+                  local_xx += κ[i, j] * definite_deriv_xx(θxk, θyk, xc, yc, cell_size)
+                  local_yy += κ[i, j] * definite_deriv_yy(θxk, θyk, xc, yc, cell_size)
+                  local_xy += κ[i, j] * definite_deriv_xy(θxk, θyk, xc, yc, cell_size)
+               end
+            end
+            (local_xx, local_yy, local_xy)
+         end
+      end
+
+      chunk_sums = fetch.(tasks)
+      ψxx[k] += (1/π) * sum(t[1] for t in chunk_sums)
+      ψyy[k] += (1/π) * sum(t[2] for t in chunk_sums)
+      ψxy[k] += (1/π) * sum(t[3] for t in chunk_sums)
    end
 
    θx = reshape(θx_flat, θx_shape)
