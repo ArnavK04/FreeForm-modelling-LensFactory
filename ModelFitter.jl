@@ -175,9 +175,181 @@ function print_ram_stats(_)
     return false
 end
 
-function main()
+function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile)   
 
     t0 = time()
+
+    global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess, full_kernel
+
+    model = LensModel.read_input(input_file)
+    param_ref = Dict(p.key => p.refer for p in model.parameters)
+
+    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=p_value)
+    resolution = gridx[2,1] - gridx[1,1]
+    fin_res = resolution
+    Y_LIM = gridy[1, end]
+    X_LIM = gridx[end, 1]
+    # get full_kernel for the run
+    full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
+
+    println("size of gridx: ", size(gridx))
+    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
+
+    filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename_tosave = filename
+
+    if !isnothing(prevfile)
+        filename = prevfile
+    end
+
+
+    # load prior from previous run converged map and refine to a finer grid
+    if inc_res || same_res
+
+        data = load("../Diagnostics/files/$(filename).jld2")
+        prior_kappa_ = data["κ_map"]
+        new_guess_ = data["κ_map"]
+        gridx_ = data["gridx"]
+        gridy_ = data["gridy"]
+
+        res_ = gridx_[2,1] - gridx_[1,1]
+        X_LIM = gridx_[end,1]
+        Y_LIM = gridy_[1,end]
+        println("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
+
+        if inc_res
+            fin_res = res_ /2.0
+        elseif same_res
+            fin_res = res_
+        end
+
+        filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
+
+        res_factor = round(Int,res_/fin_res)
+        println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
+
+        if res_factor != 1
+            println("Refining the prior from previous run by a factor of: ", res_factor)
+            new_guess__, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
+            prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
+            # smoothening the refined grid
+            pix = 2
+            new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
+            prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
+
+        else
+            println("No refinement needed for the prior from previous run.")
+            pix = 2
+            new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
+            prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
+            gridx = gridx_
+            gridy = gridy_
+            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
+        end
+        println("loaded prior from previous run and refined to a finer grid with resolution: ", fin_res, " arcsec/pixel")
+    end
+
+    κ0 = vec(new_guess)
+    θ0 = log.(κ0)  # Initial guess in θ space
+
+    # testing grad provided by finitediff module
+    function g!(grad_vec_θ, θ_vec)
+        FiniteDiff.finite_difference_gradient!(grad_vec_θ, neg_logpost_MEM, θ_vec)
+        return grad_vec_θ
+    end
+
+    result = optimize(
+        neg_logpost_MEM,
+        logpost_grad!,
+        #g!,
+        θ0,
+        Optim.LBFGS(linesearch = LineSearches.HagerZhang()),
+        Optim.Options(
+            store_trace  = true,
+            show_trace  = true,
+            show_every  = 100,
+            #time_limit  = 43200,  # 12 hours
+            g_tol       = 1e-2,
+            callback = print_ram_stats,
+            #extended_trace = true,
+	    iterations = 5000
+        ),
+        #autodiff  = AutoFiniteDiff(),
+    )
+
+    t1 = time()
+
+    trace = Optim.trace(result)
+    println("Trace length: ", length(trace))
+
+    θ_map = reshape(Optim.minimizer(result), size(gridx))
+    κ_map = exp.(θ_map)  # Convert back to κ space
+
+    println("Stopped by:  ", result.stopped_by)
+    println("Final value: ", Optim.minimum(result))
+
+    # WILL MOVE HESSIAN CALC TO A DIFFEENT FILE ALTOGETHER. IT NEEDS PARALLELIZATION.
+
+    println("Converged:     ", Optim.converged(result))
+    println("Iterations:    ", Optim.iterations(result))
+    println("Final value:   ", Optim.minimum(result))
+    println("Stopped by:    ", result.stopped_by)
+    println("Gradient norm: ", result.g_residual)
+
+    # final chi2
+    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy, true)            # general diagnostics lens, so no computing kernel here
+    final_chi2 = 2 * LikelihoodFunctions.neg_loglikelihood_MEM(model, final_lens, param_ref, full_kernel)
+
+    println("\nFinal -ve log likelihood (approx): ", final_chi2)
+    println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
+
+    κ_diff = κ_map .- new_guess
+    κ_reldiff = κ_diff ./ new_guess         # new_guess is exp(theta) so always positive   
+
+    println("------------------------------------------")
+    println("Max absolute change in kappa at $(argmax(abs.(κ_diff))) = $(maximum(abs.(κ_diff)))")
+    println("Max relative change in kappa at $(argmax(abs.(κ_reldiff))) = $(maximum(abs.(κ_reldiff)))")
+
+    jldsave("../Diagnostics/files/$(filename_tosave).jld2";
+        model_config = model,
+        κ_map        = κ_map,
+        gridx        = gridx,
+        gridy        = gridy,
+        chi2         = final_chi2,
+        neg_logpost  = neg_logpost_MEM(vec(θ_map)),
+        θ0           = θ0,
+        prior_kappa  = prior_kappa,
+        init_guess   = new_guess,
+        κ_diff       = κ_diff,
+        κ_reldiff    = κ_reldiff,
+        seed         = seed,
+        pix          = pix,
+        sigma        = sigma,
+        prior_flag   = g_flag,
+        reg_factor   = reg_factor,
+        minimum_value= Optim.minimum(result),
+        iterations   = Optim.iterations(result),
+        time_run     = Optim.time_run(result),
+        stopped_by   = result.stopped_by,
+        converged    = Optim.converged(result),
+        trace        = trace,
+        X_LIM        = X_LIM,
+        Y_LIM        = Y_LIM,
+        resolution   = fin_res,
+        cluster      = clustername
+    )
+
+    t3 = time()
+    println("Time taken for optimization: ", t1 - t0, " seconds")
+    println("Total time taken: ", t3 - t0, " seconds")
+    println("--------------------------------------------------------------------")
+
+    return filename_tosave, runnumber, prevfile
+
+end
+
+function main()
 
     global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess, full_kernel
 
@@ -259,186 +431,19 @@ function main()
         exit(1)
     end
 
-    model = LensModel.read_input(input_file)
-    param_ref = Dict(p.key => p.refer for p in model.parameters)
+    saved_file, used_runnumber, used_file = run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile)  # first run
+    saved_file2, used_runnumber2, used_file2 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber, p_value, clustername, saved_file)  # second run
+    saved_file3, used_runnumber3, used_file3 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber2 + 1, p_value, clustername, saved_file2)  # third run
+    saved_file4, used_runnumber4, used_file4 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber3 + 1, p_value, clustername, saved_file3)  # fourth run
+    saved_file5, used_runnumber5, used_file5 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber4 + 1, p_value, clustername, saved_file4)  # fifth run
 
-    prior_kappa, gridx, gridy = LikelihoodFunctions.construct_prior(model; prior_flag=1, prior_value=p_value)
-    resolution = gridx[2,1] - gridx[1,1]
-    fin_res = resolution
-    Y_LIM = gridy[1, end]
-    X_LIM = gridx[end, 1]
-    # get full_kernel for the run
-    full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
-
-    println("size of gridx: ", size(gridx))
-    new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
-
-    filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
-    filename_tosave = filename
-
-    if !isnothing(prevfile)
-        filename = prevfile
-    end
-
-    # load prior from previous run converged map and refine to a finer grid
-    if inc_res || same_res
-
-        data = load("../Diagnostics/files/$(filename).jld2")
-        prior_kappa_ = data["κ_map"]
-        new_guess_ = data["κ_map"]
-        gridx_ = data["gridx"]
-        gridy_ = data["gridy"]
-
-        res_ = gridx_[2,1] - gridx_[1,1]
-        X_LIM = gridx_[end,1]
-        Y_LIM = gridy_[1,end]
-        println("min kappa: ", minimum(prior_kappa_), " max kappa: ", maximum(prior_kappa_), " mean kappa: ", mean(prior_kappa_))
-
-        if inc_res
-            fin_res = res_ /2.0
-        elseif same_res
-            fin_res = res_
-        end
-
-        filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
-
-        res_factor = round(Int,res_/fin_res)
-        println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
-
-        if res_factor != 1
-            println("Refining the prior from previous run by a factor of: ", res_factor)
-            new_guess__, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
-            prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
-            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
-            # smoothening the refined grid
-            pix = 2
-            new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
-            prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
-
-        else
-            println("No refinement needed for the prior from previous run.")
-            pix = 2
-            new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
-            prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
-            gridx = gridx_
-            gridy = gridy_
-            full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
-        end
-        println("loaded prior from previous run and refined to a finer grid with resolution: ", fin_res, " arcsec/pixel")
-    end
-
-    κ0 = vec(new_guess)
-    θ0 = log.(κ0)  # Initial guess in θ space
-
-    # testing grad provided by finitediff module
-    function g!(grad_vec_θ, θ_vec)
-        FiniteDiff.finite_difference_gradient!(grad_vec_θ, neg_logpost_MEM, θ_vec)
-        return grad_vec_θ
-    end
-
-    result = optimize(
-        neg_logpost_MEM,
-        logpost_grad!,
-        #g!,
-        θ0,
-        Optim.LBFGS(linesearch = LineSearches.HagerZhang()),
-        Optim.Options(
-            store_trace  = true,
-            show_trace  = true,
-            show_every  = 5,
-            #time_limit  = 43200,  # 12 hours
-            g_tol       = 1e-2,
-            callback = print_ram_stats,
-            #extended_trace = true,
-	    iterations = 5000
-        ),
-        #autodiff  = AutoFiniteDiff(),
-    )
-
-    trace = Optim.trace(result)
-    println("Trace length: ", length(trace))
-
-    θ_map = reshape(Optim.minimizer(result), size(gridx))
-    κ_map = exp.(θ_map)  # Convert back to κ space
-
-    println("Stopped by:  ", result.stopped_by)
-    println("Final value: ", Optim.minimum(result))
-
-    t1 = time()
-    #hessian = give_inversehessian(κ_map, prior_kappa, gridx, gridy, model, param_ref)
-    t2 = time()
-    #hessian_fast = give_inversehessian_fast(κ_map, prior_kappa, gridx, gridy, model, param_ref)
-    t_fast = time()
-    #errors = give_errormap(hessian_fast)
-
-    # WILL MOVE HESSIAN CALC TO A DIFFEENT FILE ALTOGETHER. IT NEEDS PARALLELIZATION.
-
-    println("Converged:     ", Optim.converged(result))
-    println("Iterations:    ", Optim.iterations(result))
-    println("Final value:   ", Optim.minimum(result))
-    println("Stopped by:    ", result.stopped_by)
-    println("Gradient norm: ", result.g_residual)
-
-    # final chi2
-    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy, true)            # general diagnostics lens, so no computing kernel here
-    final_chi2 = 2 * LikelihoodFunctions.neg_loglikelihood_MEM(model, final_lens, param_ref, full_kernel)
-
-    println("\nFinal -ve log likelihood (approx): ", final_chi2)
-    println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
-
-    jldsave("../Diagnostics/files/$(filename_tosave).jld2";
-        model_config = model,
-        κ_map        = κ_map,
-        #hessian      = hessian,
-        #hessian_fast = hessian_fast,
-        #errors       = errors,
-        gridx        = gridx,
-        gridy        = gridy,
-        chi2         = final_chi2,
-        neg_logpost  = neg_logpost_MEM(vec(θ_map)),
-        θ0           = θ0,
-        prior_kappa  = prior_kappa,
-        init_guess   = new_guess,
-        seed         = seed,
-        pix          = pix,
-        sigma        = sigma,
-        prior_flag   = g_flag,
-        reg_factor   = reg_factor,
-        minimum_value= Optim.minimum(result),
-        iterations   = Optim.iterations(result),
-        time_run     = Optim.time_run(result),
-        stopped_by   = result.stopped_by,
-        converged    = Optim.converged(result),
-        trace        = trace,
-        X_LIM        = X_LIM,
-        Y_LIM        = Y_LIM,
-        resolution   = fin_res,
-        cluster      = clustername
-    )
-
-    t3 = time()
-    println("Time taken for optimization: ", t1 - t0, " seconds")
-    println("Time taken for Hessian computation: ", t2 - t1, " seconds")
-    println("Time taken for fast Hessian computation: ", t_fast - t2, " seconds")
-    #println("max difference between hessians: ", maximum(abs.(hessian - hessian_fast)))
-    #println("mean difference between hessians: ", mean(abs.(hessian - hessian_fast)))
-    println("Total time taken: ", t3 - t0, " seconds")
+    saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, true, false, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run higher res
+    saved_file7, used_runnumber7, used_file7 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber6 + 1, p_value, clustername, saved_file6)  # seventh run higher res
+    saved_file8, used_runnumber8, used_file8 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber7 + 1, p_value, clustername, saved_file7)  # eighth run higher res
+    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run higher res
+    saved_file9, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run higher res
 
 
-    """println("printing stats for fast hessian matrix....")
-
-    println("Condition number:  ", cond(hessian_fast))
-    println("Min eigenvalue:    ", minimum(eigvals(hessian_fast)))
-    println("Max eigenvalue:    ", maximum(eigvals(hessian_fast)))
-    println("Min diagonal:      ", minimum(diag(hessian_fast)))
-    println("Max diagonal:      ", maximum(diag(hessian_fast)))
-
-    println("Symmetry error:    ", maximum(abs.(hessian_fast .- hessian_fast')))
-    
-    eigs_fast = eigvals(hessian_fast)
-    println("Positive definite: ", all(eigs_fast .> 0))
-    println("N negative eigs:   ", sum(eigs_fast .< 0))
-    println("N near-zero eigs:  ", sum(abs.(eigs_fast) .< 1e-6))"""
 end
 
 main()
