@@ -311,13 +311,13 @@ function main()
             prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
             full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
             # smoothening the refined grid
-            pix = 1
+            pix = 2
             new_guess = imfilter(new_guess__, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa__, Kernel.gaussian(pix))
 
         else
             println("No refinement needed for the prior from previous run.")
-            pix = 1
+            pix = 2
             new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
             gridx = gridx_
