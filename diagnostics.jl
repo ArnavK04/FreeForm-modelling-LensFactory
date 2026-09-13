@@ -89,6 +89,12 @@ function main()
     println("loading fits data..")
     time_loadstart = time()
     gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile(clustername)
+
+    Hera_offset = 12.0      # Hera image coordinates were offset by 12 in x direction, so we need to correct for that
+    if clustername == "Hera"
+        gridx_fits .+= Hera_offset
+    end
+
     kappa = Float64.(kappa)  # Ensure kappa is of type Float64
     gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
     gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
