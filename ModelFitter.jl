@@ -209,6 +209,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
         data = load("../Diagnostics/files/$(filename).jld2")
         prior_kappa_ = data["κ_map"]
         new_guess_ = data["κ_map"]
+        κ_prev_ = copy(data["κ_map"])
         gridx_ = data["gridx"]
         gridy_ = data["gridy"]
 
@@ -232,6 +233,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             println("Refining the prior from previous run by a factor of: ", res_factor)
             new_guess__, gridx, gridy = UtilityFunctions.refine_map(new_guess_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)  # refine to a required grid
             prior_kappa__, _, _ = UtilityFunctions.refine_map(prior_kappa_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
+            κ_prev__, _,_ = UtilityFunctions.refine_map(κ_prev_, gridx_, gridy_, gridx_[end,1], gridy_[1,end], fin_res, 1)
             full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
             # smoothening the refined grid
             pix = 2
@@ -243,6 +245,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             pix = 2
             new_guess = imfilter(new_guess_, Kernel.gaussian(pix))
             prior_kappa = imfilter(prior_kappa_, Kernel.gaussian(pix))
+            κ_prev__ = κ_prev_
             gridx = gridx_
             gridy = gridy_
             full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
@@ -304,8 +307,8 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     println("\nFinal -ve log likelihood (approx): ", final_chi2)
     println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
 
-    κ_diff = κ_map .- new_guess
-    κ_reldiff = κ_diff ./ new_guess         # new_guess is exp(theta) so always positive   
+    κ_diff = κ_map .- κ_prev__         # κ_prev__ is the previous run's converged map, refined to the current grid
+    κ_reldiff = κ_diff ./ κ_prev__        # κ_prev__ is exp(theta) so always positive   
 
     println("------------------------------------------")
     println("Max absolute change in kappa at $(argmax(abs.(κ_diff))) = $(maximum(abs.(κ_diff)))")
