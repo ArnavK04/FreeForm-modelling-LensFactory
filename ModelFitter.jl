@@ -310,6 +310,9 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     println("------------------------------------------")
     println("Max absolute change in kappa at $(argmax(abs.(κ_diff))) = $(maximum(abs.(κ_diff)))")
     println("Max relative change in kappa at $(argmax(abs.(κ_reldiff))) = $(maximum(abs.(κ_reldiff)))")
+    println("Mean absolute change in kappa = $(mean(abs.(κ_diff)))")
+    println("Mean relative change in kappa = $(mean(abs.(κ_reldiff)))")
+    println("------------------------------------------")
 
     jldsave("../Diagnostics/files/$(filename_tosave).jld2";
         model_config = model,

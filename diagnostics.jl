@@ -165,6 +165,8 @@ function main()
     traceofrun = data["trace"]
     gridx = data["gridx"]
     gridy = data["gridy"]
+    κ_diff = data["κ_diff"]
+    κ_reldiff = data["κ_reldiff"]
     #errors = data["errors"]
 
     param_ref = Dict(p.key => p.refer for p in model.parameters)
@@ -227,6 +229,7 @@ function main()
     κ_fine_ = copy(κ_fine) .* adis
     prior_kappa_fine_ = copy(prior_kappa_fine) .* adis
     init_guess_fine_ = copy(init_guess_fine) .* adis
+    κ_diff_ = copy(κ_diff) .* adis
 
     #errors .*= adis            # rescaling errors to source redshift 9
 
@@ -263,22 +266,21 @@ function main()
         ylims!(axes_init, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_init_guess_kappa_map.png", fig_init)
 
+        fig_diff, axes_diff = Lenses.plot_sky(gridx, gridy)
+        hm = heatmap!(axes_diff, gridx[:,1], gridy[1,:], κ_diff_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_diff_)), maximum(abs.(κ_diff_))))
+        cb = Colorbar(fig_diff[1,2], hm; label = "κ_diff", width = 20)
+        xlims!(axes_diff, -X_lim_plot, X_lim_plot)
+        ylims!(axes_diff, -Y_lim_plot, Y_lim_plot)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_diff_map.png", fig_diff)
+
+        fig_reldiff, axes_reldiff = Lenses.plot_sky(gridx, gridy)
+        hm = heatmap!(axes_reldiff, gridx[:,1], gridy[1,:], κ_reldiff, colormap = :BrBG, colorrange = (-maximum(abs.(κ_reldiff)), maximum(abs.(κ_reldiff))))
+        cb = Colorbar(fig_reldiff[1,2], hm; label = "κ_reldiff", width = 20)
+        xlims!(axes_reldiff, -X_lim_plot, X_lim_plot)
+        ylims!(axes_reldiff, -Y_lim_plot, Y_lim_plot)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_reldiff_map.png", fig_reldiff)
+
         println("plotting the lens magnification/kappa maps...")
-
-        """err_fig, err_axes = Lenses.plot_sky(gridx, gridy)
-        hm = heatmap!(err_axes, gridx[:,1], gridy[1,:], errors, colormap = :turbo, colorrange = (0, maximum(errors)))
-        cb = Colorbar(err_fig[1,2], hm; label = "δκ", width = 20)
-        xlims!(err_axes, -X_lim_plot, X_lim_plot)
-        ylims!(err_axes, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_error_map.png", err_fig)
-
-        rel_errors = errors ./ κ_map
-        relerr_fig, relerr_axes = Lenses.plot_sky(gridx, gridy)
-        hm_rel = heatmap!(relerr_axes, gridx[:,1], gridy[1,:], rel_errors, colormap = :turbo, colorrange = (0, 2))
-        cb_rel = Colorbar(relerr_fig[1,2], hm_rel; label = "δκ/κ", width = 20)
-        xlims!(relerr_axes, -X_lim_plot, X_lim_plot)
-        ylims!(relerr_axes, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_relative_error_map.png", relerr_fig)"""
 
         fig_mag, axes_mag = Lenses.plot_sky(gridx_finefits, gridy_finefits)
         hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = (0, 100))
