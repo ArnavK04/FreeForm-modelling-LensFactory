@@ -450,7 +450,7 @@ function main()
     println(saved_file7, "--------------", used_runnumber7, "-------------", used_file7)
     saved_file8, used_runnumber8, used_file8 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber7 + 1, p_value, clustername, saved_file7)  # eighth run higher res
     println(saved_file8, "--------------", used_runnumber8, "-------------", used_file8)
-    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value，used_runnumber8 + 1，p_value，clustername，saved_file8)  # ninth run higher res
+    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run higher res
     println(saved_file9, "--------------", used_runnumber9, "-------------", used_file9)
     saved_file9, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run higher res
     println(saved_file9, "--------------", used_runnumber10, "-------------", used_file10)
