@@ -197,6 +197,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
 
     filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
     filename_tosave = filename
+    κ_prev__ = copy(prior_kappa)  # Initialize κ_prev__ with the current prior_kappa
 
     if !isnothing(prevfile)
         filename = prevfile
