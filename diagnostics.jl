@@ -8,7 +8,7 @@ using FITSIO
 using LinearAlgebra
 using ArgParse
 using Optim
-using PrintF
+using Printf
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
