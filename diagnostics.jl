@@ -9,6 +9,7 @@ using LinearAlgebra
 using ArgParse
 using Optim
 using Printf
+using Statistics
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
