@@ -349,7 +349,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
 
     t3 = time()
     println("Time taken for optimization: ", t1 - t0, " seconds")
-    println("Total time taken: ", t3 - t0, " seconds")
+    println("Total time taken: ", t3 - t0, " seconds or ", (t3 - t0)/3600.0, " hours.")
     println("--------------------------------------------------------------------")
 
     return filename_tosave, runnumber, prevfile
