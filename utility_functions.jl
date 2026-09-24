@@ -169,6 +169,7 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
     kid_global = 1
     sum_rms = 0.0
     count = 0
+    total_img = 0
     for src in model.source_config.sources
         adis_value = adis[sid]
         kid = 1
@@ -188,21 +189,23 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
 
             println(length(images_obs), " Observed images: ", images_obs)
             println(length(images_pred), " Predicted images: ", images_pred)
+            obs_img_count = length(images_obs)
 
             sum_rms_, actual_count_ = give_sum_rms(images_pred, images_obs, thres)
             sum_rms += sum_rms_
             count += actual_count_
+            total_img += obs_img_count
             kid += 1
             kid_global += 1
 
-            println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(length(images_obs)), rms = $(sqrt(sum_rms_/actual_count_))")
+            println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(obs_img_count), rms = $(sqrt(sum_rms_/actual_count_))")
             println("------------------------------------------------------")
         end
         sid += 1
         flush(stdout)
     end
     println(" TOTAL STATS - count: ", count, " sum_rms: ", sum_rms, " rms: ", sqrt(sum_rms / count))
-    return sqrt(sum_rms / count)
+    return sqrt(sum_rms / count), count, total_img
 end
 
 function give_sum_rms(images_pred, images_obs, threshold_distance)

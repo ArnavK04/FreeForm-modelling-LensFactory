@@ -175,7 +175,6 @@ function main()
     gridy = data["gridy"]
     κ_diff = data["κ_diff"]
     κ_reldiff = data["κ_reldiff"]
-    #errors = data["errors"]
 
     param_ref = Dict(p.key => p.refer for p in model.parameters)
 
@@ -348,9 +347,10 @@ function main()
     if plot_image_flag_og
 
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
+        rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
         open(cluster_path * "rms.txt", "a") do io
             println(io, "rms of image positions with threshold using truth map from $(clustername) = $(thres): " * string(rms))
+            println(io, "count: ", count, ", total_img: ", total_img)
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
         end
 
@@ -360,10 +360,11 @@ function main()
     if plot_image_flag
 
         time_start_image = time()
-        rms = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
+        rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
         # save the rms to a text file
         open("../Diagnostics/plots/$(foldername)/rms.txt", "a") do io
             println(io, "rms of image positions with threshold using reconstructed map for $(clustername) = $(thres): " * string(rms))
+            println(io, "count: ", count, ", total_img: ", total_img)
             println(io, "χ² of predicted image positions: ", data["chi2"])
             println(io, "time taken for rms calc: ", time() - time_start_image, " seconds.")
         end
@@ -382,6 +383,36 @@ function main()
     save("../Diagnostics/plots/$(foldername)/$(name)_trace_diagnostics.png", fig)
     println("done")
     println("------------------------------")
+
+    # saving all important arrays for cross iteration comparison
+    jldsave("../Diagnostics/plots/$(foldername)/$(name)_diagnostics.jld2",;
+        gridx_finefits = gridx_finefits,
+        gridy_finefits = gridy_finefits,
+        gridx          = gridx,
+        gridy          = gridy,
+        mag_fine       = mag_fine,
+        mag_finefits   = mag_finefits,
+        κ_fine         = κ_fine_,
+        kappa_finefits = kappa_finefits,
+        prior_kappa_fine = prior_kappa_fine_,
+        init_guess_fine  = init_guess_fine_,
+        κ_diff         = κ_diff_,
+        κ_reldiff      = κ_reldiff,
+        img_pts        = makiepts,
+        X_lim_plot     = X_lim_plot,
+        Y_lim_plot     = Y_lim_plot,
+        X_lim          = X_lim,
+        Y_lim          = Y_lim,
+        cluster        = clustername,
+        res            = res,
+        thres          = thres,
+        name           = name,
+        foldername     = foldername,
+        RMS            = rms,
+        count          = count,
+        total_img      = total_img,
+        χ²             = data["chi2"]
+    )
 
 end
 
