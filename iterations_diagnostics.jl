@@ -138,7 +138,7 @@ function main()
     outdir     = args["outdir"]
 
     if outdir == nothing
-        println("outdir not specified, using default: $(joinpath(diag_dir, 'comparison'))")
+        println("outdir not specified, using default: $(joinpath(diag_dir, "comparison"))")
         outdir = joinpath(diag_dir, "comparison")
         mkpath(outdir)
     else 
