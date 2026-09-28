@@ -64,11 +64,11 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
 
     if colorrange === nothing
         if symmetric
-            m = maximum(maximum(abs.(v)) for v in vals)
+            m = 5*maximum(maximum(abs.(vals[end])))
             colorrange = (-m, m)
         else
-            lo = minimum(minimum(v) for v in vals)
-            hi = maximum(maximum(v) for v in vals)
+            lo = 5*minimum(minimum(vals[end]))
+            hi = 5*maximum(maximum(vals[end]))
             colorrange = (lo, hi)
         end
     end
@@ -78,14 +78,14 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
     for i in 1:n
         gx = datas[i][gridx_key]
         gy = datas[i][gridy_key]
-        ax = Axis(fig[1, i]; aspect = DataAspect(), title = names[i],
+        ax = Axis(fig[1, i]; aspect = DataAspect(),
                   xlabel = "θx", ylabel = i == 1 ? "θy" : "")
         hm = heatmap!(ax, gx[:, 1], gy[1, :], vals[i]; colormap = colormap, colorrange = colorrange)
 
         if show_images && haskey(datas[i], "img_pts")
             pts = datas[i]["img_pts"]
             if !isempty(pts)
-                scatter!(ax, pts; color = :yellow, markersize = 3)
+                scatter!(ax, pts; color = :yellow, markersize = 6)
             end
         end
 
@@ -179,7 +179,7 @@ function main()
     # reconstructed magnification at z_s = 9
     fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
                              colormap = :turbo, colorrange = (0, 100), label = "|μ|",
-                             show_images = true)
+                             transform = abs, show_images = true)
     save(joinpath(outdir, "compare_reconst_mag_with_images.png"), fig)
 
     fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
