@@ -1,23 +1,242 @@
 using LensFactory
-using LensFactory.Constants
-using LensFactory.LensModel.LensModelIO
-using JLD2
-using Interpolations
-using CairoMakie
-using FITSIO
-using LinearAlgebra
 using ArgParse
-using Optim
-using Printf
+using JLD2
+using CairoMakie
 using Statistics
+using Printf
 
-include("FreeFormLens.jl")
-include("utility_functions.jl")
 
-"""
-Things to add in this.
+# functino to read command line arguments
 
-1. function to read file
-2. rms vs iteeration table at best resolution
-3. combined plot of various quantities vs iteration
-"""
+function parse_commandline()
+    s = ArgParseSettings()
+    @add_arg_table s begin
+        "--names"
+            help = "Comma-separated list of run names to compare, e.g. \"runA,runB,runC\""
+            arg_type = String
+            required = true
+        "--res"
+            help = "Resolution for which to make maps"
+            arg_type = Union{Nothing,Float64}
+            default = nothing
+        "--thres"
+            help = "Threshold for which to make maps"
+            arg_type = Union{Nothing,Float64}
+            default = nothing
+        "--diag_dir"
+            help = "Base diagnostics directory"
+            arg_type = String
+            default = "../Diagnostics/plots"
+        "--outdir"
+            help = "Where to save the comparison figures (defaults to <diag_dir>/<foldername>/comparison)"
+            arg_type = String
+            default = nothing
+    end
+    return parse_args(s)
+end
+
+function load_run(diag_dir::String, foldername::String, name::String)
+    path = joinpath(diag_dir, foldername, "$(name)_diagnostics.jld2")
+    isfile(path) || error("diagnostics file not found: $path")
+    return load(path)
+end
+
+# plot a row of all runs for a given quantity (e.g. kappa, magnification, etc.)
+function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}},
+                            key::String, gridx_key::String, gridy_key::String;
+                            colormap = :turbo,
+                            colorrange::Union{Nothing,Tuple{<:Real,<:Real}} = nothing,
+                            label::String = key,
+                            transform::Function = identity,
+                            symmetric::Bool = false,
+                            X_lim_plot::Union{Nothing,Float64} = nothing,
+                            Y_lim_plot::Union{Nothing,Float64} = nothing,
+                            show_images::Bool = false)
+
+    n = length(names)
+    missing_idx = [i for i in 1:n if !haskey(datas[i], key)]
+    if !isempty(missing_idx)
+        @warn "key \"$key\" missing for runs: $(names[missing_idx]); skipping this comparison"
+        return nothing
+    end
+
+    vals = [transform(datas[i][key]) for i in 1:n]
+
+    if colorrange === nothing
+        if symmetric
+            m = maximum(maximum(abs.(v)) for v in vals)
+            colorrange = (-m, m)
+        else
+            lo = minimum(minimum(v) for v in vals)
+            hi = maximum(maximum(v) for v in vals)
+            colorrange = (lo, hi)
+        end
+    end
+
+    fig = Figure(size = (420 * n + 140, 480))
+    hm = nothing
+    for i in 1:n
+        gx = datas[i][gridx_key]
+        gy = datas[i][gridy_key]
+        ax = Axis(fig[1, i]; aspect = DataAspect(), title = names[i],
+                  xlabel = "θx", ylabel = i == 1 ? "θy" : "")
+        hm = heatmap!(ax, gx[:, 1], gy[1, :], vals[i]; colormap = colormap, colorrange = colorrange)
+
+        if show_images && haskey(datas[i], "img_pts")
+            pts = datas[i]["img_pts"]
+            if !isempty(pts)
+                scatter!(ax, pts; color = :yellow, markersize = 3)
+            end
+        end
+
+        xl = X_lim_plot === nothing ? get(datas[i], "X_lim_plot", nothing) : X_lim_plot
+        yl = Y_lim_plot === nothing ? get(datas[i], "Y_lim_plot", nothing) : Y_lim_plot
+        xl !== nothing && xlims!(ax, -xl, xl)
+        yl !== nothing && ylims!(ax, -yl, yl)
+    end
+    Colorbar(fig[1, n + 1], hm; label = label, width = 20)
+    return fig
+end
+
+# plots showing how xi^2, images counted, rms change across each iteration
+
+function plot_summary(names::Vector{String}, datas::Vector{Dict{String,Any}})
+
+    n = length(names)
+    rms   = [get(d, "RMS", NaN) for d in datas]
+    chi2  = [get(d, "χ²", NaN) for d in datas]
+    count = [get(d, "count", NaN) for d in datas]
+    total = [get(d, "total_img", NaN) for d in datas]       # same total image for all iterations
+
+    fig = Figure(size = (1200, 400))
+
+    ax1 = Axis(fig[1, 1]; title = "RMS of image positions", xlabel = "run", ylabel = "RMS [arcsec]")
+    scatterlines!(ax1, 1:n, rms; color = :blue, markersize = 8)
+
+    ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²")
+    scatterlines!(ax2, 1:n, chi2; color = :blue, markersize = 8)
+
+    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count")
+    scatterlines!(ax3, 1:n, count; color = :blue, markersize = 8)
+
+    println("Summary stats:")
+    for i in 1:n
+        println("run: $(names[i]), RMS = $(rms[i]), χ² = $(chi2[i]), count = $(count[i]), total_img = $(total[i])")
+    end
+
+    return fig
+end
+
+function main()
+
+    args = parse_commandline()
+
+    names      = String.(strip.(split(args["names"], ",")))
+    diag_dir   = args["diag_dir"]
+    res        = args["res"]
+    thres      = args["thres"]
+    outdir     = args["outdir"]
+
+    if outdir == nothing
+        println("outdir not specified, using default: $(joinpath(diag_dir, 'comparison'))")
+        outdir = joinpath(diag_dir, "comparison")
+        mkpath(outdir)
+    else 
+        mkpath(outdir)
+    end
+
+    println("runs to be analysed have parent name: $(names[1])")
+    println("loading diagnostics for $(length(names)) runs from $(diag_dir)...")
+    datas = Dict{String,Any}[]
+
+    for name in names
+        foldername = "$(name)_res_$(res)_thres_$(thres)"
+        d = load_run(diag_dir, foldername, name)
+        push!(datas, d)
+    end
+    println("loaded: ", join(names, ", "))
+
+    # reconstructed kappa at z_s = 9
+    fig = plot_quantity_row(names, datas, "κ_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 3.75), label = "κ")
+    save(joinpath(outdir, "compare_kappa_reconst.png"), fig)
+
+    fig = plot_quantity_row(names, datas, "κ_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 3.75), label = "κ",
+                             show_images = true)
+    save(joinpath(outdir, "compare_kappa_reconst_with_images.png"), fig)
+
+    # prior kappa at z_s = 9
+    fig = plot_quantity_row(names, datas, "prior_kappa_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 3.75), label = "κ_prior")
+    save(joinpath(outdir, "compare_prior_kappa.png"), fig)
+
+    # initial guess kappa at z_s = 9
+    fig = plot_quantity_row(names, datas, "init_guess_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 3.75), label = "κ_init_guess")
+    save(joinpath(outdir, "compare_init_guess_kappa.png"), fig)
+
+    # reconstructed magnification at z_s = 9
+    fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 100), label = "|μ|",
+                             show_images = true)
+    save(joinpath(outdir, "compare_reconst_mag_with_images.png"), fig)
+
+    fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :turbo, colorrange = (0, 100), label = "|μ|",
+                             transform = abs)
+    save(joinpath(outdir, "compare_reconst_mag.png"), fig)
+
+    # κ_diff
+    fig = plot_quantity_row(names, datas, "κ_diff", "gridx", "gridy";
+                             colormap = :BrBG, symmetric = true, label = "κ_diff")
+    save(joinpath(outdir, "compare_kappa_diff.png"), fig)
+
+    # κ_reldiff
+    fig = plot_quantity_row(names, datas, "κ_reldiff", "gridx", "gridy";
+                             colormap = :BrBG, symmetric = true, label = "κ_reldiff")
+    save(joinpath(outdir, "compare_kappa_reldiff.png"), fig)
+
+    # mag_reldev and kappa_reldev
+    for (i, name) in enumerate(names)
+        d = datas[i]
+        mag_reldev = (d["mag_fine"] .- d["mag_finefits"]) ./ d["mag_finefits"]
+        kappa_reldev = (d["κ_fine"] .- d["kappa_finefits"]) ./ d["kappa_finefits"]
+        datas[i]["__mag_reldev"] = mag_reldev
+        datas[i]["__kappa_reldev"] = kappa_reldev
+    end
+
+    fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
+                             colormap = :BrBG, colorrange = (-1.0, 4.0), label = "mag_reldev")
+    save(joinpath(outdir, "compare_mag_reldev.png"), fig)
+    fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
+                             colormap = :BrBG, colorrange = (-4.0, 4.0), label = "mag_reldev")
+    save(joinpath(outdir, "compare_mag_reldevBrBG.png"), fig)
+
+    fig = plot_quantity_row(names, datas, "__kappa_reldev", "gridx_finefits", "gridy_finefits";
+                             colormap = :afmhot, colorrange = (-1.0, 2.0), label = "kappa_reldev")
+    save(joinpath(outdir, "compare_kappa_reldev.png"), fig)
+    fig = plot_quantity_row(names, datas, "__kappa_reldev", "gridx_finefits", "gridy_finefits";
+                             colormap = :BrBG, colorrange = (-2.0, 2.0), label = "kappa_reldev")
+    save(joinpath(outdir, "compare_kappa_reldevBrBG.png"), fig)
+
+    fig = plot_summary(names, datas)
+    save(joinpath(outdir, "compare_summary_stats.png"), fig)
+
+    open(joinpath(outdir, "compare_summary.txt"), "w") do io
+        for (i, name) in enumerate(names)
+            d = datas[i]
+            println(io, "run: ", name)
+            println(io, "  RMS       = ", get(d, "RMS", "n/a"))
+            println(io, "  count     = ", get(d, "count", "n/a"))
+            println(io, "  total_img = ", get(d, "total_img", "n/a"))
+            println(io, "  χ²        = ", get(d, "χ²", "n/a"))
+            println(io, "  res       = ", get(d, "res", "n/a"), ", thres = ", get(d, "thres", "n/a"))
+            println(io, "-"^40)
+        end
+    end
+
+    println("comparison plots and summary written to: ", outdir)
+end
+
+main()
