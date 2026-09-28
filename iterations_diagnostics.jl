@@ -60,7 +60,7 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
         return nothing
     end
 
-    vals = [transform(datas[i][key]) for i in 1:n]
+    vals = [transform.(datas[i][key]) for i in 1:n]
 
     if colorrange === nothing
         if symmetric
@@ -139,7 +139,7 @@ function main()
 
     if outdir == nothing
         println("outdir not specified, using default: $(joinpath(diag_dir, "comparison"))")
-        outdir = joinpath(diag_dir, "comparison")
+        outdir = joinpath(diag_dir, "comparison_res_$(res)_thres_$(thres)")
         mkpath(outdir)
     else 
         mkpath(outdir)
