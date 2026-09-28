@@ -17,11 +17,11 @@ function parse_commandline()
             required = true
         "--res"
             help = "Resolution for which to make maps"
-            arg_type = Union{Nothing,Float64}
+            arg_type = Float64
             default = nothing
         "--thres"
             help = "Threshold for which to make maps"
-            arg_type = Union{Nothing,Float64}
+            arg_type = Float64
             default = nothing
         "--diag_dir"
             help = "Base diagnostics directory"
