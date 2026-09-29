@@ -46,7 +46,7 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
                             key::String, gridx_key::String, gridy_key::String;
                             colormap = :turbo,
                             colorrange::Union{Nothing,Tuple{<:Real,<:Real}} = nothing,
-                            label::String = key,
+                            label = key,
                             transform::Function = identity,
                             symmetric::Bool = false,
                             X_lim_plot::Union{Nothing,Float64} = nothing,
