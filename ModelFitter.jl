@@ -22,21 +22,11 @@ function neg_logpost_MEM(θ_vec::M) where M <: ROA
     this is equivalent to minimising wrt κ.
     """
     global model, param_ref, gridx, gridy, prior_kappa, reg_factor, full_kernel
-    #println("starting logpost calc...")
     κ_vec = exp.(θ_vec)
-    println("κ range: ", extrema(κ_vec), "  θ range: ", extrema(θ_vec))
     κ = reshape(κ_vec, size(gridx))  # Reshape κ_vec to match the shape of prior_kappa
-    t0 = time()
     lens = FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true)  # kernel_flag = true to compute kernel for the lens
-    t1 = time()
-    #print("lens init took: ", t1-t0, " s, ")
     lp = LikelihoodFunctions.neg_logprior_MEM(κ_vec, prior_kappa, reg_factor)
-    t2 = time()
-    #print("log-prior calc took: ", t2-t1, "  s, ")
     ll = LikelihoodFunctions.neg_loglikelihood_MEM(model, lens, param_ref, full_kernel)
-    t3 = time()
-    #println("log-likelihood calc took: ", t3-t2, "  s, ")
-    #println("logpost calc done.")
 
     return lp + ll
 end
@@ -65,21 +55,17 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
     This function combines the gradients of the log-prior and log-likelihood.
     """
     global prior_kappa, reg_factor, gridx, gridy, model, param_ref, full_kernel
-    #println("starting logpost grad calc...")
     κ_vec = exp.(θ_vec)  # Convert θ_vec back to κ_vec
 
     # Compute gradients of log-prior and log-likelihood
-    t0 = time()
+
     lp_grad = LikelihoodFunctions.logprior_grad!(κ_vec, prior_kappa, reg_factor)
-    t1 = time()
-    print("log-prior grad calc took: ", t1-t0, "  s, ")
     ll_grad = LikelihoodFunctions.loglikelihood_grad!(κ_vec, prior_kappa, gridx, gridy, model, param_ref, full_kernel)
     t2 = time()
-    println("log-likelihood grad calc took: ", t2-t1, "  s, ")
 
     # Combine the gradients
     grad_vec_θ .= (lp_grad .+ ll_grad) .* κ_vec  # Chain rule: d/dθ = d/dκ * κ
-    #println("logpost grad calc done.")
+
 end
 
 function give_inversehessian(κ::M, prior_kappa::M, gridx::M, gridy::M, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}) where {M <: ROA}
