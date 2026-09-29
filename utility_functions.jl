@@ -318,15 +318,10 @@ function neg_loglikelihood_MEM(model::ModelConfig, lens::Lenses.AbstractLens, pa
 
    if model.sampler.scheme == :SourcePlane
       # Calculate deflection at image positions
-      t00 = time()
       _, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, lens, full_kernel)
-      t01 = time()
-      #print("lens quantities calc took: ", t01-t00, "  s, ")
 
       # Calculate position likelihood
       pos_chi2 = LensModel.Likelihood.chi2_sourceplane(model, adis, αx_all, αy_all, A_all)
-      t02 = time()
-      #println("chi2 calc took: ", t02-t01, "  s, ")
    else
       error("Unsupported sampling scheme: $(model.sampler.scheme)")
    end
