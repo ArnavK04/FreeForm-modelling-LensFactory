@@ -4,7 +4,7 @@ using JLD2
 using CairoMakie
 using Statistics
 using Printf
-using LatexStrings
+using LaTeXStrings
 
 # functino to read command line arguments
 
