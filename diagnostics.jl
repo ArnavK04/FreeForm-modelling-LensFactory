@@ -197,6 +197,8 @@ function main()
     κ_fine, x_fine, y_fine = UtilityFunctions.refine_map(κ_map, gridx, gridy, X_lim, Y_lim, res, order)
     prior_kappa_fine, _, _ = UtilityFunctions.refine_map(prior_kappa, gridx, gridy, X_lim, Y_lim, res, order)
     init_guess_fine, _, _ = UtilityFunctions.refine_map(init_guess, gridx, gridy, X_lim, Y_lim, res, order)
+    κ_diff_fine, _, _ = UtilityFunctions.refine_map(κ_diff, gridx, gridy, X_lim, Y_lim, res, order)
+    κ_reldiff_fine, _, _ = UtilityFunctions.refine_map(κ_reldiff, gridx, gridy, X_lim, Y_lim, res, order)
     println("refining the optimal maps done in ", time() - obsrefinestart, " seconds.")
 
     flush(stdout)
@@ -237,6 +239,8 @@ function main()
     prior_kappa_fine_ = copy(prior_kappa_fine) .* adis
     init_guess_fine_ = copy(init_guess_fine) .* adis
     κ_diff_ = copy(κ_diff) .* adis
+    κ_diff_fine_ = copy(κ_diff_fine) .* adis
+    κ_reldiff_fine_ = copy(κ_reldiff_fine) .* adis
 
     #errors .*= adis            # rescaling errors to source redshift 9
 
@@ -302,6 +306,22 @@ function main()
         ylims!(axes_reldiff, -Y_lim_plot, Y_lim_plot)
         Label(fig_reldiff[2,1], @sprintf("Abs Mean = %.3e     Max |deviation| = %.3e", mean(abs.(κ_reldiff)), maximum(abs.(κ_reldiff))), fontsize = 16, halign = :left)
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_reldiff_map.png", fig_reldiff)
+
+        fig_diff, axes_diff = Lenses.plot_sky(gridx, gridy)
+        hm = heatmap!(axes_diff, gridx_finefits[:,1], gridy_finefits[1,:], κ_diff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_diff_fine_)), maximum(abs.(κ_diff_fine_))))
+        cb = Colorbar(fig_diff[1,2], hm; label = "κ_diff", width = 20)
+        xlims!(axes_diff, -X_lim_plot, X_lim_plot)
+        ylims!(axes_diff, -Y_lim_plot, Y_lim_plot)
+        Label(fig_diff[2,1], @sprintf("Abs Mean = %.3e     Max |deviation| = %.3e", mean(abs.(κ_diff_fine_)), maximum(abs.(κ_diff_fine_))), fontsize = 16, halign = :left)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_diff_finemap.png", fig_diff)
+
+        fig_reldiff, axes_reldiff = Lenses.plot_sky(gridx, gridy)
+        hm = heatmap!(axes_reldiff, gridx_finefits[:,1], gridy_finefits[1,:], κ_reldiff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_reldiff_fine_)), maximum(abs.(κ_reldiff_fine_))))
+        cb = Colorbar(fig_reldiff[1,2], hm; label = "κ_reldiff", width = 20)
+        xlims!(axes_reldiff, -X_lim_plot, X_lim_plot)
+        ylims!(axes_reldiff, -Y_lim_plot, Y_lim_plot)
+        Label(fig_reldiff[2,1], @sprintf("Abs Mean = %.3e     Max |deviation| = %.3e", mean(abs.(κ_reldiff_fine_)), maximum(abs.(κ_reldiff_fine_))), fontsize = 16, halign = :left)
+        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_reldiff_finemap.png", fig_reldiff)
 
         println("plotting the lens magnification/kappa maps...")
 
@@ -398,6 +418,8 @@ function main()
         init_guess_fine  = init_guess_fine_,
         κ_diff         = κ_diff_,
         κ_reldiff      = κ_reldiff,
+        κ_diff_fine    = κ_diff_fine_,
+        κ_reldiff_fine = κ_reldiff_fine_,
         img_pts        = makiepts,
         X_lim_plot     = X_lim_plot,
         Y_lim_plot     = Y_lim_plot,
