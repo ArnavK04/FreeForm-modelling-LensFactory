@@ -211,7 +211,7 @@ function main()
     end
 
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
-                             colormap = :afmhot, colorrange = (-1.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
+                             colormap = :BrBG, colorrange = (-1.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
     save(joinpath(outdir, "compare_mag_reldev.png"), fig)
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
                              colormap = :BrBG, colorrange = (-4.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
@@ -225,10 +225,12 @@ function main()
     save(joinpath(outdir, "compare_kappa_reldevBrBG.png"), fig)
 
     fig = plot_quantity_row(names, datas, "__kappa_diff_log", "gridx", "gridy";
-                             colormap = :turbo, colorrange = (-3.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)")
+                             colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)",
+                             show_images = true)
     save(joinpath(outdir, "compare_kappa_diff_log.png"), fig)
     fig = plot_quantity_row(names, datas, "__kappa_reldiff_log", "gridx", "gridy";
-                             colormap = :turbo, colorrange = (-3.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}")
+                             colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}",
+                             show_images = true)
     save(joinpath(outdir, "compare_kappa_reldiff_log.png"), fig)
 
     fig = plot_summary(names, datas)
