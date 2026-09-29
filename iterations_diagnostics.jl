@@ -4,7 +4,7 @@ using JLD2
 using CairoMakie
 using Statistics
 using Printf
-
+using LatexStrings
 
 # functino to read command line arguments
 
@@ -189,36 +189,47 @@ function main()
 
     # κ_diff
     fig = plot_quantity_row(names, datas, "κ_diff", "gridx", "gridy";
-                             colormap = :BrBG, symmetric = true, label = "κ_diff")
+                             colormap = :BrBG, symmetric = true, label = L"|κ_i - κ_{i-1}|")
     save(joinpath(outdir, "compare_kappa_diff.png"), fig)
 
     # κ_reldiff
     fig = plot_quantity_row(names, datas, "κ_reldiff", "gridx", "gridy";
-                             colormap = :BrBG, symmetric = true, label = "κ_reldiff")
+                             colormap = :BrBG, symmetric = true, label = L"|κ_i - κ_{i-1}| / κ_{i-1}")
     save(joinpath(outdir, "compare_kappa_reldiff.png"), fig)
 
-    # mag_reldev and kappa_reldev
+    # mag_reldev and kappa_reldev, and abs kappa_diff and kappa_reldiff in log
     for (i, name) in enumerate(names)
         d = datas[i]
         mag_reldev = (d["mag_fine"] .- d["mag_finefits"]) ./ d["mag_finefits"]
         kappa_reldev = (d["κ_fine"] .- d["kappa_finefits"]) ./ d["kappa_finefits"]
+        kappa_diff_log = log10.(abs.(d["κ_diff"]))
+        kappa_reldiff_log = log10.(abs.(d["κ_reldiff"]))
         datas[i]["__mag_reldev"] = mag_reldev
         datas[i]["__kappa_reldev"] = kappa_reldev
+        datas[i]["__kappa_diff_log"] = kappa_diff_log
+        datas[i]["__kappa_reldiff_log"] = kappa_reldiff_log
     end
 
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, colorrange = (-1.0, 4.0), label = "mag_reldev")
+                             colormap = :afmhot, colorrange = (-1.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
     save(joinpath(outdir, "compare_mag_reldev.png"), fig)
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, colorrange = (-4.0, 4.0), label = "mag_reldev")
+                             colormap = :BrBG, colorrange = (-4.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
     save(joinpath(outdir, "compare_mag_reldevBrBG.png"), fig)
 
     fig = plot_quantity_row(names, datas, "__kappa_reldev", "gridx_finefits", "gridy_finefits";
-                             colormap = :afmhot, colorrange = (-1.0, 2.0), label = "kappa_reldev")
+                             colormap = :afmhot, colorrange = (-1.0, 2.0), label = L"(κ- κ_t)/ κ_t")
     save(joinpath(outdir, "compare_kappa_reldev.png"), fig)
     fig = plot_quantity_row(names, datas, "__kappa_reldev", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, colorrange = (-2.0, 2.0), label = "kappa_reldev")
+                             colormap = :BrBG, colorrange = (-2.0, 2.0), label = L"(κ- κ_t)/ κ_t")
     save(joinpath(outdir, "compare_kappa_reldevBrBG.png"), fig)
+
+    fig = plot_quantity_row(names, datas, "__kappa_diff_log", "gridx", "gridy";
+                             colormap = :turbo, colorrange = (-3.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)")
+    save(joinpath(outdir, "compare_kappa_diff_log.png"), fig)
+    fig = plot_quantity_row(names, datas, "__kappa_reldiff_log", "gridx", "gridy";
+                             colormap = :turbo, colorrange = (-3.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}")
+    save(joinpath(outdir, "compare_kappa_reldiff_log.png"), fig)
 
     fig = plot_summary(names, datas)
     save(joinpath(outdir, "compare_summary_stats.png"), fig)
