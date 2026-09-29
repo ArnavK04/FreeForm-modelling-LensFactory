@@ -51,7 +51,7 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
                             symmetric::Bool = false,
                             X_lim_plot::Union{Nothing,Float64} = nothing,
                             Y_lim_plot::Union{Nothing,Float64} = nothing,
-                            show_images::Bool = false)
+                            show_images::Bool = false, img_color = :yellow)
 
     n = length(names)
     missing_idx = [i for i in 1:n if !haskey(datas[i], key)]
@@ -85,7 +85,7 @@ function plot_quantity_row(names::Vector{String}, datas::Vector{Dict{String,Any}
         if show_images && haskey(datas[i], "img_pts")
             pts = datas[i]["img_pts"]
             if !isempty(pts)
-                scatter!(ax, pts; color = :yellow, markersize = 6)
+                scatter!(ax, pts; color = img_color, markersize = 6)
             end
         end
 
@@ -226,11 +226,11 @@ function main()
 
     fig = plot_quantity_row(names, datas, "__kappa_diff_log", "gridx", "gridy";
                              colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)",
-                             show_images = true)
+                             show_images = true, img_color = :cyan)
     save(joinpath(outdir, "compare_kappa_diff_log.png"), fig)
     fig = plot_quantity_row(names, datas, "__kappa_reldiff_log", "gridx", "gridy";
                              colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}",
-                             show_images = true)
+                             show_images = true, img_color = :cyan)
     save(joinpath(outdir, "compare_kappa_reldiff_log.png"), fig)
 
     fig = plot_summary(names, datas)
