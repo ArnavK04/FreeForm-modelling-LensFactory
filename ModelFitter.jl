@@ -450,8 +450,18 @@ function main()
     println(saved_file4, "--------------", used_runnumber4, "-------------", used_file4)
     saved_file5, used_runnumber5, used_file5 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber4 + 1, p_value, clustername, saved_file4)  # fifth run
     println(saved_file5, "--------------", used_runnumber5, "-------------", used_file5)
+    saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run
+    println(saved_file6, "--------------", used_runnumber6, "-------------", used_file6)
+    saved_file7, used_runnumber7, used_file7 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber6 + 1, p_value, clustername, saved_file6)  # seventh run
+    println(saved_file7, "--------------", used_runnumber7, "-------------", used_file7)
+    saved_file8, used_runnumber8, used_file8 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber7 + 1, p_value, clustername, saved_file7)  # eighth run
+    println(saved_file8, "--------------", used_runnumber8, "-------------", used_file8)
+    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run
+    println(saved_file9, "--------------", used_runnumber9, "-------------", used_file9)
+    saved_file10, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run
+    println(saved_file10, "--------------", used_runnumber10, "-------------", used_file10)
 
-    saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, true, false, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run higher res
+    """saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, true, false, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run higher res
     println(saved_file6, "--------------", used_runnumber6, "-------------", used_file6)
     saved_file7, used_runnumber7, used_file7 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber6 + 1, p_value, clustername, saved_file6)  # seventh run higher res
     println(saved_file7, "--------------", used_runnumber7, "-------------", used_file7)
@@ -460,7 +470,7 @@ function main()
     saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run higher res
     println(saved_file9, "--------------", used_runnumber9, "-------------", used_file9)
     saved_file9, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run higher res
-    println(saved_file9, "--------------", used_runnumber10, "-------------", used_file10)
+    println(saved_file9, "--------------", used_runnumber10, "-------------", used_file10)"""
 
     println("All runs done. Total time taken: ", time() - t00, " seconds or ", (time() - t00)/3600, " hours.")
 
