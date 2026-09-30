@@ -110,14 +110,15 @@ function plot_summary(names::Vector{String}, datas::Vector{Dict{String,Any}})
 
     fig = Figure(size = (1200, 400))
 
-    ax1 = Axis(fig[1, 1]; title = "RMS of image positions", xlabel = "run", ylabel = "RMS [arcsec]")
+    ax1 = Axis(fig[1, 1]; title = "RMS of image positions", xlabel = "run", ylabel = "RMS [arcsec]", yscale = :log10)
     scatterlines!(ax1, 1:n, rms; color = :blue, markersize = 8)
 
-    ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²")
+    ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²", yscale = :log10)
     scatterlines!(ax2, 1:n, chi2; color = :blue, markersize = 8)
 
-    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count")
+    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count", yscale = :log10)
     scatterlines!(ax3, 1:n, count; color = :blue, markersize = 8)
+
 
     println("Summary stats:")
     for i in 1:n
