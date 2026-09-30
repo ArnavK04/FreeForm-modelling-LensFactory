@@ -110,13 +110,13 @@ function plot_summary(names::Vector{String}, datas::Vector{Dict{String,Any}})
 
     fig = Figure(size = (1200, 400))
 
-    ax1 = Axis(fig[1, 1]; title = "RMS of image positions", xlabel = "run", ylabel = "RMS [arcsec]", yscale = :log10)
+    ax1 = Axis(fig[1, 1]; title = "RMS of image positions", xlabel = "run", ylabel = "RMS [arcsec]", yscale = log10)
     scatterlines!(ax1, 1:n, rms; color = :blue, markersize = 8)
 
-    ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²", yscale = :log10)
+    ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²", yscale = log10)
     scatterlines!(ax2, 1:n, chi2; color = :blue, markersize = 8)
 
-    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count", yscale = :log10)
+    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count", yscale = log10)
     scatterlines!(ax3, 1:n, count; color = :blue, markersize = 8)
 
 
@@ -209,6 +209,8 @@ function main()
         datas[i]["__kappa_reldev"] = kappa_reldev
         datas[i]["__kappa_diff_log"] = kappa_diff_log
         datas[i]["__kappa_reldiff_log"] = kappa_reldiff_log
+        datas[i]["__kappa_diff_fine_log"] = log10.(abs.(d["κ_diff_fine"]))
+        datas[i]["__kappa_reldiff_fine_log"] = log10.(abs.(d["κ_reldiff_fine"]))
     end
 
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
@@ -224,11 +226,22 @@ function main()
     fig = plot_quantity_row(names, datas, "__kappa_reldev", "gridx_finefits", "gridy_finefits";
                              colormap = :BrBG, colorrange = (-2.0, 2.0), label = L"(κ- κ_t)/ κ_t")
     save(joinpath(outdir, "compare_kappa_reldevBrBG.png"), fig)
-
     fig = plot_quantity_row(names, datas, "__kappa_diff_log", "gridx", "gridy";
                              colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)",
                              show_images = true, img_color = :cyan)
     save(joinpath(outdir, "compare_kappa_diff_log.png"), fig)
+    fig = plot_quantity_row(names, datas, "__kappa_diff_fine_log", "gridx_finefits", "gridy_finefits";
+                             colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)",
+                             show_images = true, img_color = :cyan)
+    save(joinpath(outdir, "compare_kappa_diff_fine_log.png"), fig)
+    fig = plot_quantity_row(names, datas, "__kappa_reldiff_fine_log", "gridx_finefits", "gridy_finefits";
+                             colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}",
+                             show_images = true, img_color = :cyan)
+    save(joinpath(outdir, "compare_kappa_reldiff_fine_log.png"), fig)
+    fig = plot_quantity_row(names, datas, "κ_diff_fine", "gridx_finefits", "gridy_finefits";
+                             colormap = :BrBG, symmetric = true, label = L"|κ_i - κ_{i-1}|",
+                             show_images = true, img_color = :cyan)
+    save(joinpath(outdir, "compare_kappa_diff_fine.png"), fig)
     fig = plot_quantity_row(names, datas, "__kappa_reldiff_log", "gridx", "gridy";
                              colormap = :afmhot, colorrange = (-4.0, 1.0), label = L"log10(|κ_i - κ_{i-1}|)/ κ_{i-1}",
                              show_images = true, img_color = :cyan)
