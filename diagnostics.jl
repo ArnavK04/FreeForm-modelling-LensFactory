@@ -14,6 +14,82 @@ using Statistics
 include("FreeFormLens.jl")
 include("utility_functions.jl")
 
+
+function _write_fits_header!(
+    header::ImageHDU,
+    model::ModelConfig,
+    x_grid::AbstractMatrix,
+    y_grid::AbstractMatrix)
+    # Number of pixels
+    ny, nx = size(x_grid)
+
+    # Check grid dimensions
+    @assert size(y_grid) == (ny, nx) "x_grid and y_grid must have the same size"
+
+    # Reference sky position from model
+    RA_REF  = model.observation.reference[1]
+    DEC_REF = model.observation.reference[2]
+
+    if RA_REF == 0.0 && DEC_REF == 0.0
+        @warn "Reference position is (0.0, 0.0). Are you sure?"
+    end
+
+    # Grid spacing (assumes uniform spacing and coordinates in arcsec)
+    dx = x_grid[1, 2] - x_grid[1, 1]
+    dy = y_grid[2, 1] - y_grid[1, 1]
+
+    # Field of view from grid extent, including pixel widths
+    FOV_x = abs(dx) * nx
+    FOV_y = abs(dy) * ny
+
+    # Reference pixel: locate coordinate (0, 0) on the grid
+    ix = argmin(abs.(x_grid[1, :] .- 0.0))
+    iy = argmin(abs.(y_grid[:, 1] .- 0.0))
+
+    # Coordinate projection
+    write_key(header, "CTYPE1", "RA---TAN", "RA coordinate type")
+    write_key(header, "CTYPE2", "DEC--TAN", "DEC coordinate type")
+
+    # Reference sky coordinates
+    write_key(header, "CRVAL1", RA_REF, "RA reference value")
+    write_key(header, "CRVAL2", DEC_REF, "DEC reference value")
+
+    # Reference pixel
+    write_key(header, "CRPIX1", Float64(ix), "Reference pixel in x-direction")
+    write_key(header, "CRPIX2", Float64(iy), "Reference pixel in y-direction")
+
+    # Pixel scale in degrees/pixel
+    write_key(header, "CDELT1", -abs(dx) / 3600.0, "Pixel scale in RA (degrees)")
+    write_key(header, "CDELT2",  abs(dy) / 3600.0, "Pixel scale in DEC (degrees)")
+
+    # Metadata
+    write_key(header, "NAXIS1", nx, "Number of pixels along x")
+    write_key(header, "NAXIS2", ny, "Number of pixels along y")
+    write_key(header, "FOV_X", FOV_x, "Field of view along x (arcsec)")
+    write_key(header, "FOV_Y", FOV_y, "Field of view along y (arcsec)")
+
+    write_key(header, "MODELER", model.observation.modeler, "Modeler name")
+    write_key(header, "LENS", model.observation.lens, "Lens name")
+    write_key(header, "Z_D", model.observation.z_d, "Lens redshift")
+
+    return nothing
+end
+
+function save_fits_file(model::LensModel.ModelConfig, map::M, x_grid::M, y_grid::M, name::String, foldername::String) where {M <: ROA}
+
+    # Open new FITS file
+    f = FITS("../Diagnostics/plots/$(foldername)/$(name).fits", "w")
+    write(f, map)
+
+    # Write header
+    hdu = f[1]
+    _write_fits_header!(hdu, model, x_grid, y_grid)
+
+    close(f)
+
+    return nothing
+end
+
 function main()
 
     time_start = time()
@@ -414,8 +490,18 @@ function main()
     println("done")
     println("------------------------------")
 
+    # saving fits files for potential, deflection, and kappa, gamma1, gamma2 maps.
+    save_fits_file(model, κ_fine_, x_fine, y_fine, "kappa_map", foldername)
+    save_fits_file(model, ψ_free, x_fine, y_fine, "potential_map", foldername)
+    save_fits_file(model, αx_free, x_fine, y_fine, "deflection_x_map", foldername)
+    save_fits_file(model, αy_free, x_fine, y_fine, "deflection_y_map", foldername)
+    save_fits_file(model, ψxx_free, x_fine, y_fine, "jacobian_xx_map", foldername)
+    save_fits_file(model, ψyy_free, x_fine, y_fine, "jacobian_yy_map", foldername)
+    save_fits_file(model, ψxy_free, x_fine, y_fine, "jacobian_xy_map", foldername)
+
     # saving all important arrays for cross iteration comparison
     jldsave("../Diagnostics/plots/$(foldername)/$(name)_diagnostics.jld2",;
+        model          = model,
         gridx_finefits = gridx_finefits,
         gridy_finefits = gridy_finefits,
         gridx          = gridx,
