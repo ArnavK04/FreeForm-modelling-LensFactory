@@ -215,6 +215,7 @@ function give_sum_rms(images_pred, images_obs, threshold_distance)
     """
 
     sum_rms = 0.0
+    sum_chi2 = 0.0
     actual_count = 0.0
 
     for image in images_obs
@@ -227,6 +228,7 @@ function give_sum_rms(images_pred, images_obs, threshold_distance)
                 pred_closest = pred
             end
         end
+        sum_chi2 += len_closest^2
         if len_closest <= threshold_distance
             sum_rms += len_closest^2
             actual_count += 1

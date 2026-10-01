@@ -118,13 +118,23 @@ function main()
 
     cluster_path = "../$(clustername)_data/res$(res)_thres$(thres)/"
 
+    kappa_dev_range = (-1.0, 2.0)
+    magnif_range = (0, 100)
+    if clustername == "Hera"
+        kappa_range = (0, 2.70)
+    elseif clustername == "Ares"
+        kappa_range = (0, 3.75)
+    else
+        kappa_range = (0, 3.75)
+    end
+
     if fits_flag
 
         mkpath(cluster_path)
 
         clusterplotstart = time()
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = (0, 3.75))
+        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_[1,2], hm; label = "κ", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
@@ -145,7 +155,7 @@ function main()
         save(cluster_path * "gamma2_finefits.png", fig_)
 
         fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = (0, 100))
+        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = magnif_range)
         cb = Colorbar(fig_[1,2], hm; label = "|μ|", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
@@ -264,7 +274,7 @@ function main()
         save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviationBrBG.png", fig_magdev2)
 
         fig_kappadev, axes_kappadev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_kappadev, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = (-1.0, 2.0))
+        hm = heatmap!(axes_kappadev, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = kappa_dev_range)
         cb = Colorbar(fig_kappadev[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
         xlims!(axes_kappadev, -X_lim_plot, X_lim_plot)
         ylims!(axes_kappadev, -Y_lim_plot, Y_lim_plot)
@@ -278,14 +288,14 @@ function main()
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviationBrBG.png", fig_kappadev2)
 
         fig_prior, axes_prior = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_prior, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = (0, 3.75))
+        hm = heatmap!(axes_prior, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_prior[1,2], hm; label = "κ_prior", width = 20)
         xlims!(axes_prior, -X_lim_plot, X_lim_plot)
         ylims!(axes_prior, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_prior_kappa_map.png", fig_prior)
 
         fig_init, axes_init = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_init, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine_, colormap = :turbo, colorrange = (0, 3.75))
+        hm = heatmap!(axes_init, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine_, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_init[1,2], hm; label = "κ_init_guess", width = 20)
         xlims!(axes_init, -X_lim_plot, X_lim_plot)
         ylims!(axes_init, -Y_lim_plot, Y_lim_plot)
@@ -326,7 +336,7 @@ function main()
         println("plotting the lens magnification/kappa maps...")
 
         fig_mag, axes_mag = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = (0, 100))
+        hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = magnif_range)
         cb = Colorbar(fig_mag[1,2], hm; label = "|μ|", width = 20)
         xlims!(axes_mag, -X_lim_plot, X_lim_plot)
         ylims!(axes_mag, -Y_lim_plot, Y_lim_plot)
@@ -348,7 +358,7 @@ function main()
         flush(stdout)
 
         κ_fig, κ_axes = Lenses.plot_sky(x_fine, y_fine)
-        hm = heatmap!(κ_axes, x_fine[:,1], y_fine[1,:], κ_fine_, colormap = :turbo, colorrange = (0, 3.75))
+        hm = heatmap!(κ_axes, x_fine[:,1], y_fine[1,:], κ_fine_, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(κ_fig[1,2], hm; label = "κ", width = 20)
         xlims!(κ_axes, -X_lim_plot, X_lim_plot)
         ylims!(κ_axes, -Y_lim_plot, Y_lim_plot)

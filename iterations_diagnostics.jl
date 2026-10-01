@@ -31,7 +31,12 @@ function parse_commandline()
             help = "Where to save the comparison figures (defaults to <diag_dir>/<foldername>/comparison)"
             arg_type = String
             default = nothing
+        "--clustername"
+            help = "Name of the cluster (e.g. Hera, Ares, etc.)"
+            arg_type = String
+            default = "Hera"
     end
+
     return parse_args(s)
 end
 
@@ -137,6 +142,17 @@ function main()
     res        = args["res"]
     thres      = args["thres"]
     outdir     = args["outdir"]
+    clustername = args["clustername"]
+
+    kappa_dev_range = (-1.0, 2.0)
+    magnif_range = (0, 100)
+    if clustername == "Hera"
+        kappa_range = (0, 2.70)
+    elseif clustername == "Ares"
+        kappa_range = (0, 3.75)
+    else
+        kappa_range = (0, 3.75)
+    end
 
     if outdir == nothing
         println("outdir not specified, using default: $(joinpath(diag_dir, "comparison"))")
@@ -159,32 +175,32 @@ function main()
 
     # reconstructed kappa at z_s = 9
     fig = plot_quantity_row(names, datas, "κ_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 3.75), label = "κ")
+                             colormap = :turbo, colorrange = kappa_range, label = "κ")
     save(joinpath(outdir, "compare_kappa_reconst.png"), fig)
 
     fig = plot_quantity_row(names, datas, "κ_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 3.75), label = "κ",
+                             colormap = :turbo, colorrange = kappa_range, label = "κ",
                              show_images = true)
     save(joinpath(outdir, "compare_kappa_reconst_with_images.png"), fig)
 
     # prior kappa at z_s = 9
     fig = plot_quantity_row(names, datas, "prior_kappa_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 3.75), label = "κ_prior")
+                             colormap = :turbo, colorrange = kappa_range, label = "κ_prior")
     save(joinpath(outdir, "compare_prior_kappa.png"), fig)
 
     # initial guess kappa at z_s = 9
     fig = plot_quantity_row(names, datas, "init_guess_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 3.75), label = "κ_init_guess")
+                             colormap = :turbo, colorrange = kappa_range, label = "κ_init_guess")
     save(joinpath(outdir, "compare_init_guess_kappa.png"), fig)
 
     # reconstructed magnification at z_s = 9
     fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 100), label = "|μ|",
+                             colormap = :turbo, colorrange = magnif_range, label = "|μ|",
                              transform = abs, show_images = true)
     save(joinpath(outdir, "compare_reconst_mag_with_images.png"), fig)
 
     fig = plot_quantity_row(names, datas, "mag_fine", "gridx_finefits", "gridy_finefits";
-                             colormap = :turbo, colorrange = (0, 100), label = "|μ|",
+                             colormap = :turbo, colorrange = magnif_range, label = "|μ|",
                              transform = abs)
     save(joinpath(outdir, "compare_reconst_mag.png"), fig)
 
