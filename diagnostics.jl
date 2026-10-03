@@ -20,56 +20,46 @@ function _write_fits_header!(
     model::ModelConfig,
     x_grid::AbstractMatrix,
     y_grid::AbstractMatrix)
-    # Number of pixels
-    ny, nx = size(x_grid)
 
-    # Check grid dimensions
-    @assert size(y_grid) == (ny, nx) "x_grid and y_grid must have the same size"
+    # x varies along dim 1, y along dim 2
+    nx, ny = size(x_grid)
+    @assert size(y_grid) == (nx, ny) "x_grid and y_grid must have the same size"
 
-    # Reference sky position from model
     RA_REF  = model.observation.reference[1]
     DEC_REF = model.observation.reference[2]
-
     if RA_REF == 0.0 && DEC_REF == 0.0
         @warn "Reference position is (0.0, 0.0). Are you sure?"
     end
 
-    # Grid spacing (assumes uniform spacing and coordinates in arcsec)
-    dx = x_grid[1, 2] - x_grid[1, 1]
-    dy = y_grid[2, 1] - y_grid[1, 1]
+    dx = x_grid[2, 1] - x_grid[1, 1]
+    dy = y_grid[1, 2] - y_grid[1, 1]
+    @assert dx != 0 && dy != 0 "degenerate grid spacing: dx=$dx dy=$dy"
 
-    # Field of view from grid extent, including pixel widths
     FOV_x = abs(dx) * nx
     FOV_y = abs(dy) * ny
 
-    # Reference pixel: locate coordinate (0, 0) on the grid
-    ix = argmin(abs.(x_grid[1, :] .- 0.0))
-    iy = argmin(abs.(y_grid[:, 1] .- 0.0))
+    ix = argmin(abs.(x_grid[:, 1]))
+    iy = argmin(abs.(y_grid[1, :]))
 
-    # Coordinate projection
     write_key(header, "CTYPE1", "RA---TAN", "RA coordinate type")
     write_key(header, "CTYPE2", "DEC--TAN", "DEC coordinate type")
+    write_key(header, "CUNIT1", "deg", "Units of axis 1")
+    write_key(header, "CUNIT2", "deg", "Units of axis 2")
+    write_key(header, "RADESYS", "ICRS", "Reference frame")
 
-    # Reference sky coordinates
     write_key(header, "CRVAL1", RA_REF, "RA reference value")
     write_key(header, "CRVAL2", DEC_REF, "DEC reference value")
-
-    # Reference pixel
     write_key(header, "CRPIX1", Float64(ix), "Reference pixel in x-direction")
     write_key(header, "CRPIX2", Float64(iy), "Reference pixel in y-direction")
-
-    # Pixel scale in degrees/pixel
     write_key(header, "CDELT1", -abs(dx) / 3600.0, "Pixel scale in RA (degrees)")
     write_key(header, "CDELT2",  abs(dy) / 3600.0, "Pixel scale in DEC (degrees)")
 
-    # Metadata
-    write_key(header, "NAXIS1", nx, "Number of pixels along x")
-    write_key(header, "NAXIS2", ny, "Number of pixels along y")
+    # NAXIS1/NAXIS2 removed: FITSIO writes them from the array
     write_key(header, "FOV_X", FOV_x, "Field of view along x (arcsec)")
     write_key(header, "FOV_Y", FOV_y, "Field of view along y (arcsec)")
 
-    write_key(header, "MODELER", model.observation.modeler, "Modeler name")
-    write_key(header, "LENS", model.observation.lens, "Lens name")
+    write_key(header, "MODELER", string(model.observation.modeler), "Modeler name")
+    write_key(header, "LENS", string(model.observation.lens), "Lens name")
     write_key(header, "Z_D", model.observation.z_d, "Lens redshift")
 
     return nothing
