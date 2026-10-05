@@ -121,7 +121,7 @@ function plot_summary(names::Vector{String}, datas::Vector{Dict{String,Any}})
     ax2 = Axis(fig[1, 2]; title = "χ² of image positions", xlabel = "run", ylabel = "χ²", yscale = log10)
     scatterlines!(ax2, 1:n, chi2; color = :blue, markersize = 8)
 
-    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count", yscale = log10)
+    ax3 = Axis(fig[1, 3]; title = "Images counted - Total = $(total[1])", xlabel = "run", ylabel = "count")
     scatterlines!(ax3, 1:n, count; color = :blue, markersize = 8)
 
 
