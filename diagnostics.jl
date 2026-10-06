@@ -286,7 +286,14 @@ function main()
     free_lens = FreeFormLens.init_FreeFormLens(κ_fine, x_fine, y_fine, true)
     freefull_kernel = FreeFormLens.compute_fullkernel(model, x_fine, y_fine)
     ψ_all, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, free_lens, freefull_kernel)
-    freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all) 
+    freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all)
+
+    # compute the lens quantities for the difference map
+    diff_lens = FreeFormLens.init_FreeFormLens(κ_diff_fine, x_fine, y_fine, true)
+    ψ_diff_all, αx_diff_all, αy_diff_all, A_diff_all = LensModel.LensModelUtils.lens_quantities(model, diff_lens, freefull_kernel)
+    diffimgqty_tuple = (ψ_diff_all, αx_diff_all, αy_diff_all, A_diff_all)
+
+    # lens quantities for the truth map
     if plot_image_flag_og
         cluster_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, false)
         cluster_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, true)
@@ -295,12 +302,21 @@ function main()
     end
     println("Lens initialized in ", time() - initlenstime, " seconds.")
     flush(stdout)
+
     # calculate the lens quantities over the whole grid
     lensqtystart = time()
     ψ_free = Lenses.get_potential(free_lens, x_fine, y_fine)
     αx_free, αy_free = Lenses.get_deflection(free_lens, x_fine, y_fine)
     ψxx_free, ψyy_free, ψxy_free = Lenses.get_jacobian(free_lens, x_fine, y_fine)
     free_qty_tuple = (ψ_free, αx_free, αy_free, ψxx_free, ψyy_free, ψxy_free)
+
+    # lens quantities for the difference map
+    ψ_diff = Lenses.get_potential(diff_lens, x_fine, y_fine)
+    αx_diff, αy_diff = Lenses.get_deflection(diff_lens, x_fine, y_fine)
+    ψxx_diff, ψyy_diff, ψxy_diff = Lenses.get_jacobian(diff_lens, x_fine, y_fine)
+    diff_qty_tuple = (ψ_diff, αx_diff, αy_diff, ψxx_diff, ψyy_diff, ψxy_diff)
+
+    # calculate the lens quantities for the truth map
     if plot_image_flag_og
         ψ_cluster = Lenses.get_potential(cluster_lens, x_fine, y_fine)
         αx_cluster, αy_cluster = Lenses.get_deflection(cluster_lens, x_fine, y_fine)
@@ -503,16 +519,18 @@ function main()
         mag_fine       = mag_fine,
         mag_finefits   = mag_finefits,
         κ_fine         = κ_fine_,
-        cluster_qty_tuple = cluster_qty_tuple,
         free_qty_tuple    = free_qty_tuple,
         freeimgqty_tuple  = freeimgqty_tuple,
-        clusterimgqty_tuple = clusterimgqty_tuple,
         kappa_finefits = kappa_finefits,
+        cluster_qty_tuple = cluster_qty_tuple,
+        clusterimgqty_tuple = clusterimgqty_tuple,
         prior_kappa_fine = prior_kappa_fine_,
         init_guess_fine  = init_guess_fine_,
         κ_diff         = κ_diff_,
         κ_reldiff      = κ_reldiff,
         κ_diff_fine    = κ_diff_fine_,
+        diff_qty_tuple    = diff_qty_tuple,
+        diffimgqty_tuple  = diffimgqty_tuple,
         κ_reldiff_fine = κ_reldiff_fine_,
         img_pts        = makiepts,
         X_lim_plot     = X_lim_plot,
