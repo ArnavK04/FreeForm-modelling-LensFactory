@@ -457,6 +457,9 @@ function jacobian!(ψxx::T, ψyy::T, ψxy::T, θx::T, θy::T, κ::M, gridx::M, g
          end
       end
 
+      # counter
+      println("Processing point $k of $(length(θx_flat))")
+
       chunk_sums = fetch.(tasks)
       ψxx[k] += (1/π) * sum(t[1] for t in chunk_sums)
       ψyy[k] += (1/π) * sum(t[2] for t in chunk_sums)

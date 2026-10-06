@@ -444,6 +444,8 @@ function main()
 
         time_start_image = time()
         rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_image_scatter(model, cluster_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = cluster_path * "image_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_magnification_scatter(model, cluster_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = cluster_path * "magnification_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
         open(cluster_path * "rms.txt", "a") do io
             println(io, "rms of image positions with threshold using truth map from $(clustername) = $(thres): " * string(rms))
             println(io, "count: ", count, ", total_img: ", total_img)
@@ -454,9 +456,10 @@ function main()
     end
 
     if plot_image_flag
-
         time_start_image = time()
         rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, free_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag, "../Diagnostics/plots/$(foldername)/", thres, free_qty_tuple, freeimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_image_scatter(model, free_lens, x_fine, y_fine; save_plot = true, plot_name = "../Diagnostics/plots/$(foldername)/image_scatter.png", gridqty_tuple = free_qty_tuple, imgqty_tuple = freeimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_magnification_scatter(model, free_lens, x_fine, y_fine; save_plot = true, plot_name = "../Diagnostics/plots/$(foldername)/magnification_scatter.png", gridqty_tuple = free_qty_tuple, imgqty_tuple = freeimgqty_tuple)
         # save the rms to a text file
         open("../Diagnostics/plots/$(foldername)/rms.txt", "a") do io
             println(io, "rms of image positions with threshold using reconstructed map for $(clustername) = $(thres): " * string(rms))
@@ -499,6 +502,10 @@ function main()
         mag_fine       = mag_fine,
         mag_finefits   = mag_finefits,
         κ_fine         = κ_fine_,
+        cluster_qty_tuple = cluster_qty_tuple,
+        free_qty_tuple    = free_qty_tuple,
+        freeimgqty_tuple  = freeimgqty_tuple,
+        clusterimgqty_tuple = clusterimgqty_tuple,
         kappa_finefits = kappa_finefits,
         prior_kappa_fine = prior_kappa_fine_,
         init_guess_fine  = init_guess_fine_,

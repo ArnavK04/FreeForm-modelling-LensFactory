@@ -121,7 +121,7 @@ function make_gridfrom_model(model::LensModel.ModelConfig)
     return gridx, gridy
 end
 
-function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path::String, gridqty_tuple::NTuple{6, M}, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
+function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path, gridqty_tuple::NTuple{6, M}, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
     """
     Predicts the image positions based on the lens model and source positions.
     """
@@ -279,6 +279,260 @@ function plot_trace_stats(trace)
     lines!(ax5, iters, g_norms, color = :blue)
 
     return fig, ax1, ax2, ax3, ax4, ax5
+end
+
+function plot_image_scatter(model::LensModel.ModelConfig,
+                            lens_model::Lenses.AbstractLens,
+                            x_grid::M,
+                            y_grid::M;
+                            save_plot::Bool        = true,
+                            plot_name::String      = "./predicted_scatter.png",
+                            resolution::Int64      = 2,
+                            point_kws::NamedTuple  = (markersize  = 5, 
+                                                    marker      = :circle, 
+                                                    color       = :transparent, 
+                                                    strokecolor = :black, 
+                                                    strokewidth = 2),
+                            gridqty_tuple::NTuple{6, M} = nothing, imgqty_tuple = nothing) where {M <: ROA}
+
+   # Get list of parameters for the lens model
+   param_ref = Dict(p.key => p.refer for p in model.parameters)
+   cosmo = Cosmology.init_cosmology()       # right now it initialises default cosmo only.
+   # Get angular-diameter distance ratios
+   adis = LensFactory.LensModel.adis_current(model, param_ref)
+
+   # Collect residuals across every knot/image
+   dx_all = Float64[]
+   dy_all = Float64[]
+
+   sid = 1
+   kid = 1
+   kid_global = 1
+   for src in model.source_config.sources
+      # Angular-diameter distance ratio for this source
+      adis_value = adis[sid]
+      kid = 1
+      for knot in src.knots
+         # Knot positions and measurement errors
+         x  = knot.x
+         y  = knot.y
+         σx = knot.σx
+         σy = knot.σy
+         σθ = knot.σθ
+         ψkid = imgqty_tuple[1][kid_global]
+         αxkid = imgqty_tuple[2][kid_global]
+         αykid = imgqty_tuple[3][kid_global]
+         ψxxkid = imgqty_tuple[4][kid_global][1]
+         ψyykid = imgqty_tuple[4][kid_global][4]
+         ψxykid = imgqty_tuple[4][kid_global][2]
+         kidqty_tuple = (ψkid, αxkid, αykid, ψxxkid, ψyykid, ψxykid)
+         
+         n = length(x)
+         # Predicted image positions
+         predicted_image = UtilityFunctions.predict_image(lens_model, x_grid, y_grid, x, y, adis_value, sid, kid, nothing, false, nothing, gridqty_tuple, kidqty_tuple)
+
+         # Convert predicted to mutable arrays for iterative removal
+         pred_x = Float64[p[1] for p in predicted_image]
+         pred_y = Float64[p[2] for p in predicted_image]
+
+         # Matching observed images to predicted images
+         for i in 1:n
+            if isempty(pred_x)
+               push!(results, "MISSING")
+               continue
+            end
+
+            # Calculate distances to all remaining candidates
+            dx = @. pred_x .- x[i]
+            dy = @. pred_y .- y[i]
+            dist_sq = @. dx^2 + dy^2
+
+            # Find the closest predicted image index
+            best_idx = argmin(dist_sq)
+
+            d2 = dist_sq[best_idx]
+            dist = sqrt(d2)
+
+            # Residuals (observed - predicted), assumed same ordering/length as knot.x, knot.y
+            push!(dx_all, x[i] - pred_x[best_idx])
+            push!(dy_all, y[i] - pred_y[best_idx])
+
+            # Remove this candidate so it can't be matched twice
+            deleteat!(pred_x, best_idx)
+            deleteat!(pred_y, best_idx)
+         end
+         kid_global = kid_global + 1
+         kid = kid + 1
+      end
+      sid = sid + 1
+   end
+
+   fig = Figure(size = (500, 400))
+
+   ax = Axis(fig[1, 1];
+      xlabel = L"\Delta\theta_1~\text{(arcsec)}",
+      ylabel = L"\Delta\theta_2~\text{(arcsec)}",
+      xlabelsize = 20,
+      ylabelsize = 20,
+   )
+
+   # Residuals
+   scatter!(
+      ax,
+      dx_all,
+      dy_all;
+      point_kws...,
+      label = L"\text{Image Residuals} (\theta_{obs} - \theta_{pred})"
+   )
+   xlims!(ax, -0.6, 0.6)
+   ylims!(ax, -0.6, 0.6)
+
+   # Legend
+   axislegend(ax, position = :lt, framevisible = false, labelsize = 20)
+
+   # Save
+   if save_plot
+      save(plot_name, fig; px_per_unit = resolution)
+   end
+
+   return fig, ax
+end
+
+function plot_magnification_scatter(model::LensModel.ModelConfig,
+                            lens_model::Lenses.AbstractLens,
+                            x_grid::M,
+                            y_grid::M;
+                            save_plot::Bool        = true,
+                            plot_name::String      = "./magnification_scatter.png",
+                            resolution::Int64      = 2,
+                            point_kws::NamedTuple  = (markersize  = 5, 
+                                                    marker      = :circle, 
+                                                    color       = :transparent, 
+                                                    strokecolor = :black, 
+                                                    strokewidth = 2),
+                            gridqty_tuple::NTuple{6, M} = nothing, imgqty_tuple = nothing) where {M <: ROA}
+
+   # Get list of parameters for the lens model
+   param_ref = Dict(p.key => p.refer for p in model.parameters)
+ 
+   cosmo = Cosmology.init_cosmology()       # right now it initialises default cosmo only.   
+   # Get angular-diameter distance ratios
+   adis = LensFactory.LensModel.adis_current(model, param_ref)
+
+   # Collect residuals across every knot/image
+   mag_obs_all = Float64[]
+   mag_pred_all = Float64[]
+
+   sid = 1
+   kid = 1
+   kid_global = 1
+   for src in model.source_config.sources
+      # Angular-diameter distance ratio for this source
+      adis_value = adis[sid]
+      kid = 1
+      for knot in src.knots
+         # Knot positions and measurement errors
+         x  = knot.x
+         y  = knot.y
+         σx = knot.σx
+         σy = knot.σy
+         σθ = knot.σθ
+         ψkid = imgqty_tuple[1][kid_global]
+         αxkid = imgqty_tuple[2][kid_global]
+         αykid = imgqty_tuple[3][kid_global]
+         ψxxkid = imgqty_tuple[4][kid_global][1]
+         ψyykid = imgqty_tuple[4][kid_global][4]
+         ψxykid = imgqty_tuple[4][kid_global][2]
+         kidqty_tuple = (ψkid, αxkid, αykid, ψxxkid, ψyykid, ψxykid)
+
+         # Number of images for this knot
+         n = length(x)
+ 
+         # Predicted image positions
+         predicted_image = UtilityFunctions.predict_image(lens_model, x_grid, y_grid, x, y, adis_value, sid, kid, nothing, false, nothing, gridqty_tuple, kidqty_tuple)
+         # Convert predicted to mutable arrays for iterative removal
+         pred_x = Float64[p[1] for p in predicted_image]
+         pred_y = Float64[p[2] for p in predicted_image]
+
+         psixx = adis_value * kidqty_tuple[4]
+         psixy = adis_value * kidqty_tuple[6]
+         psiyy = adis_value * kidqty_tuple[5]
+
+         mag_obs_kid = @. 1.0 / (1.0 - psixx - psiyy + psixx * psiyy - psixy^2)
+
+         A_all_kid_pred = LensFactory.Lenses.get_jacobian(lens_model, pred_x, pred_y)
+         psixx_pred = adis_value * A_all_kid_pred[1]
+         psiyy_pred = adis_value * A_all_kid_pred[2]
+         psixy_pred = adis_value * A_all_kid_pred[3]
+
+         mag_pred_kid = @. 1.0 / (1.0 - psixx_pred - psiyy_pred + psixx_pred * psiyy_pred - psixy_pred^2)
+
+         # Matching observed images to predicted images
+         for i in 1:n
+            if isempty(pred_x)
+               push!(results, "MISSING")
+               continue
+            end
+
+            # Calculate distances to all remaining candidates
+            dx = @. pred_x .- x[i]
+            dy = @. pred_y .- y[i]
+            dist_sq = @. dx^2 + dy^2
+
+            # Find the closest predicted image index
+            best_idx = argmin(dist_sq)
+
+            # ratio of magnifications, assumed same ordering/length as knot.x, knot.y
+            push!(mag_obs_all, mag_obs_kid[i])
+            push!(mag_pred_all, mag_pred_kid[best_idx])
+
+            # Remove this candidate so it can't be matched twice
+            deleteat!(pred_x, best_idx)
+            deleteat!(pred_y, best_idx)
+            deleteat!(mag_pred_kid, best_idx)
+         end
+         kid_global = kid_global + 1
+         kid = kid + 1
+      end
+      sid = sid + 1
+   end
+
+   fig = Figure(size = (500, 400))
+
+   ax = Axis(fig[1, 1];
+      xlabel = L"\mu_{obs}",
+      ylabel = L"\mu_{pred}",
+      xscale = log10,
+      yscale = log10,
+      xlabelsize = 20,
+      ylabelsize = 20
+   )
+
+   # Residuals
+   scatter!(ax, abs.(mag_obs_all), abs.(mag_pred_all); point_kws...)
+
+   xmin, xmax = extrema(abs.(mag_obs_all))
+   ymin, ymax = extrema(abs.(mag_pred_all))
+
+   lo = min(xmin, ymin)
+   hi = max(xmax, ymax)
+
+   lines!(
+      ax,
+      [lo, hi],
+      [lo, hi];
+      linestyle = :dash,
+      label = L"\mu_{obs} = \mu_{pred}"
+   )
+   # Legend
+   axislegend(ax, position = :rb, framevisible = false, labelsize = 20)
+
+   # Save
+   if save_plot
+      save(plot_name, fig; px_per_unit = resolution)
+   end
+
+   return fig, ax
 end
 
 end  # module end
