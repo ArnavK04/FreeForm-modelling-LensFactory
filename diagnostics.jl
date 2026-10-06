@@ -522,8 +522,6 @@ function main()
         free_qty_tuple    = free_qty_tuple,
         freeimgqty_tuple  = freeimgqty_tuple,
         kappa_finefits = kappa_finefits,
-        cluster_qty_tuple = cluster_qty_tuple,
-        clusterimgqty_tuple = clusterimgqty_tuple,
         prior_kappa_fine = prior_kappa_fine_,
         init_guess_fine  = init_guess_fine_,
         κ_diff         = κ_diff_,
