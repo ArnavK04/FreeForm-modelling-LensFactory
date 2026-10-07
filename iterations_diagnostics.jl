@@ -238,7 +238,7 @@ function main()
             prev_free_qty_tuple = datas[i-1]["free_qty_tuple"]
             psi_prev, αx_prev, αy_prev, ψxx_prev, ψyy_prev, ψxy_prev = prev_free_qty_tuple
             alpha_net_prev = sqrt.(αx_prev.^2 .+ αy_prev.^2)
-            datas[i]["__net_deflection_diff"] = log10.(abs.(alpha_net_free .- alpha_net_prev))
+            datas[i]["__net_deflection_diff"] = log10.(abs.((alpha_net_free .- alpha_net_prev) ./ alpha_net_prev))
         end
         datas[i]["__mag_reldev"] = mag_reldev
         datas[i]["__kappa_reldev"] = kappa_reldev
