@@ -247,7 +247,7 @@ function main()
     fig = plot_quantity_row(names, datas, "__αy_diff", "gridx_finefits", "gridy_finefits";
                              colormap = :BrBG, colorrange = (-4.0, 1.0), symmetric = true, label = L"αy_i - αy_{i-1}", img_color = :blue, show_images = true)
     save(joinpath(outdir, "compare_αy_diff.png"), fig)
-    fig, axes = plot_quantity_row(names, datas, "__net_deflection_diff", "gridx_finefits", "gridy_finefits";
+    fig = plot_quantity_row(names, datas, "__net_deflection_diff", "gridx_finefits", "gridy_finefits";
                              colormap = :BrBG, colorrange = (-4.0, 1.0), symmetric = true, label = L"|α_i - α_{i-1}|", img_color = :blue, show_images = true)
     save(joinpath(outdir, "compare_net_deflection_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__ψxx_diff", "gridx_finefits", "gridy_finefits";
