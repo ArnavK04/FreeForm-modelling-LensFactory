@@ -223,12 +223,12 @@ function main()
         kappa_reldiff_log = log10.(abs.(d["κ_reldiff"]))
         diff_qty_tuple = d["diff_qty_tuple"]
         psi_diff, αx_diff, αy_diff, ψxx_diff, ψyy_diff, ψxy_diff = diff_qty_tuple
-        datas[i]["__psi_diff"] = psi_diff
-        datas[i]["__αx_diff"] = αx_diff
-        datas[i]["__αy_diff"] = αy_diff
-        datas[i]["__ψxx_diff"] = ψxx_diff
-        datas[i]["__ψyy_diff"] = ψyy_diff
-        datas[i]["__ψxy_diff"] = ψxy_diff
+        datas[i]["__psi_diff"] = log10.(abs.(psi_diff))
+        datas[i]["__αx_diff"] = log10.(abs.(αx_diff))
+        datas[i]["__αy_diff"] = log10.(abs.(αy_diff))
+        datas[i]["__ψxx_diff"] = log10.(abs.(ψxx_diff))
+        datas[i]["__ψyy_diff"] = log10.(abs.(ψyy_diff))
+        datas[i]["__ψxy_diff"] = log10.(abs.(ψxy_diff))
         datas[i]["__mag_reldev"] = mag_reldev
         datas[i]["__kappa_reldev"] = kappa_reldev
         datas[i]["__kappa_diff_log"] = kappa_diff_log
@@ -238,24 +238,24 @@ function main()
     end
 
     fig = plot_quantity_row(names, datas, "__psi_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"ψ_i - ψ_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"ψ_i - ψ_{i-1}")
     save(joinpath(outdir, "compare_psi_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__αx_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"αx_i - αx_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"αx_i - αx_{i-1}")
     save(joinpath(outdir, "compare_αx_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__αy_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"αy_i - αy_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"αy_i - αy_{i-1}")
     save(joinpath(outdir, "compare_αy_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__ψxx_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"ψxx_i - ψxx_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"ψxx_i - ψxx_{i-1}")
     save(joinpath(outdir, "compare_ψxx_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__ψyy_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"ψyy_i - ψyy_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"ψyy_i - ψyy_{i-1}")
     save(joinpath(outdir, "compare_ψyy_diff.png"), fig)
     fig = plot_quantity_row(names, datas, "__ψxy_diff", "gridx_finefits", "gridy_finefits";
-                             colormap = :BrBG, symmetric = true, label = L"ψxy_i - ψxy_{i-1}")
+                             colormap = :BrBG, colorange = (-4.0, 1.0), symmetric = true, label = L"ψxy_i - ψxy_{i-1}")
     save(joinpath(outdir, "compare_ψxy_diff.png"), fig)
-    
+
     fig = plot_quantity_row(names, datas, "__mag_reldev", "gridx_finefits", "gridy_finefits";
                              colormap = :BrBG, colorrange = (-1.0, 4.0), label = L"(|μ|- |μ|_t)/ |μ|_t")
     save(joinpath(outdir, "compare_mag_reldev.png"), fig)

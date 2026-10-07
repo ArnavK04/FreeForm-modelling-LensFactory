@@ -227,38 +227,8 @@ mag_range = (0.0, 100.0)  # range of magnification values for colorbar
 kappa_reldev_range = (-1.0, 2.0)  # range of kappa rel deviation values for colorbar
 magnif_reldev_range = (-1.0, 4.0)  # range of magnification rel deviation values for colorbar
 
-zs = 9
-zd = model.observation.z_d
-cosmo = Cosmology.init_cosmology()      # default cosmo
-Dds = Cosmology.angular_diameter_distance(cosmo, zd, zs)
-Ds = Cosmology.angular_diameter_distance(cosmo, 0.0, zs)
-adis = Dds / Ds
-
-# initialize the lens
-initlenstime = time()
-free_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_model ./ adis, gridx_finefits, gridy_finefits, false)
-free_lens = FreeFormLens.init_FreeFormLens(kappa_model ./ adis, gridx_finefits, gridy_finefits, true)
-freefull_kernel = FreeFormLens.compute_fullkernel(model, gridx_finefits, gridy_finefits)
-ψ_all, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, free_lens, freefull_kernel)
-freeimgqty_tuple = (ψ_all, αx_all, αy_all, A_all) 
-println("Lens initialized in ", time() - initlenstime, " seconds.")
-flush(stdout)
-# calculate the lens quantities over the whole grid
-lensqtystart = time()
-ψ_free = Lenses.get_potential(free_lens, gridx_finefits, gridy_finefits)
-αx_free, αy_free = Lenses.get_deflection(free_lens, gridx_finefits, gridy_finefits)
-ψxx_free, ψyy_free, ψxy_free = Lenses.get_jacobian(free_lens, gridx_finefits, gridy_finefits)
-free_qty_tuple = (ψ_free, αx_free, αy_free, ψxx_free, ψyy_free, ψxy_free)
-println("Lensing quantities calculated in ", time() - lensqtystart, " seconds.")
-
-flush(stdout)
-
 # plots to be generated
 println("Generating paper plots...")
-
-println("foldername = ", foldername)
-println("paperplots = ", joinpath(foldername, "paperplots"))
-println("exists = ", isdir(joinpath(foldername, "paperplots")))
 
 fig, axes = Lenses.plot_sky(gridx_finefits, gridy_finefits)
 hm = heatmap!(axes, gridx_finefits[:,1], gridy_finefits[1,:], kappa_model, colormap = :turbo, colorrange = kappa_range)
@@ -287,10 +257,6 @@ cb = Colorbar(fig[1,2], hm; label = L"(|μ| - |μ|_{truth})/|μ|_{truth}", width
 xlims!(axes, -X_lim_plot, X_lim_plot)
 ylims!(axes, -Y_lim_plot, Y_lim_plot)
 save(foldername*"/"*"paperplots/"*"magnification_devmap.png", fig)
-
-fig, axes = plot_image_scatter(model, free_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = foldername*"/"*"paperplots/"*"image_scatter.png", gridqty_tuple = free_qty_tuple, imgqty_tuple = freeimgqty_tuple)
-
-fig, axes = plot_magnification_scatter(model, free_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = foldername*"/"*"paperplots/"*"magnification_scatter.png", gridqty_tuple = free_qty_tuple, imgqty_tuple = freeimgqty_tuple)
 
 # need to add these plots here
 # radial profiles
