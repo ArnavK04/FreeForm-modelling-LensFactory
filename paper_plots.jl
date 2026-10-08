@@ -146,7 +146,7 @@ function plot_magnification_scatter(model::LensModel.ModelConfig,
 end
 =#
 
-foldername = "/home/arnavkumar/juliacodes/ashish_workstation_data/Heraplots/MARS_FOV_reiter0_res2.0/Hera_MEM_fit_reg1.0_gflag1_pvalue0.5_0.5_nothing_nothing_nothing_10_1.0_70.0_70.0_res_1.0_thres_8.0"
+foldername = "/home/arnavkumar/juliacodes/ashish_workstation_data/Heraplots/MARS_FOV_reiter0_res2.0/Hera_MEM_fit_reg1.0_gflag1_pvalue0.5_0.5_nothing_nothing_nothing_10_1.0_70.0_70.0_res_0.25_thres_4.0"
 filename = "Hera_MEM_fit_reg1.0_gflag1_pvalue0.5_0.5_nothing_nothing_nothing_10_1.0_70.0_70.0_diagnostics.jld2"       
 filepath = joinpath(foldername, filename)        # path to file containing maps
 mkpath(joinpath(foldername, "paperplots"))
