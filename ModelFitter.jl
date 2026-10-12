@@ -11,6 +11,7 @@ using FiniteDiff
 using Statistics
 using ArgParse
 using ImageFiltering
+using Printf
 
 include("FreeFormLens.jl")
 include("utility_functions.jl")
@@ -181,7 +182,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     println("size of gridx: ", size(gridx))
     new_guess, _, _ = LikelihoodFunctions.construct_prior(model; prior_flag=g_flag, seed=seed,pix=pix,sigma=sigma, prior_value=guess_value)
 
-    filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$(resolution)_$(X_LIM)_$(Y_LIM)"
+    filename = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber)_$( @sprintf("%.3f", resolution))_$(X_LIM)_$(Y_LIM)"
     filename_tosave = filename
     κ_prev__ = copy(prior_kappa)  # Initialize κ_prev__ with the current prior_kappa
 
@@ -211,7 +212,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             fin_res = res_
         end
 
-        filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$(fin_res)_$(X_LIM)_$(Y_LIM)"
+        filename_tosave = "$(clustername)_MEM_fit_reg$(reg_factor)_gflag$(g_flag)_pvalue$(p_value)_$(guess_value)_$(seed)_$(pix)_$(sigma)_$(runnumber+1)_$( @sprintf("%.3f", fin_res))_$(X_LIM)_$(Y_LIM)"
 
         res_factor = round(Int,res_/fin_res)
         println("Previous resolution: ", res_, " arcsec/pixel, New resolution: ", fin_res, " arcsec/pixel, Refinement factor: ", res_factor)
