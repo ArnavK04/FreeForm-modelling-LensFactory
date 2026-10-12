@@ -262,7 +262,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             show_every  = 100,
             #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
-            callback = print_ram_stats,
+            #callback = print_ram_stats,
             #extended_trace = true,
 	    iterations = 5000
         ),
