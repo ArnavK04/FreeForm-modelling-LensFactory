@@ -157,6 +157,7 @@ function main()
 
     println("loading fits data..")
     time_loadstart = time()
+    order = 3  # cubic interpolation
     if clustername == "Hera" || clustername == "Ares"
 
         gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile(clustername)
@@ -172,7 +173,7 @@ function main()
         flush(stdout)
         println("interpolating...")
         # interpolate to a particular grid
-        order = 3  # cubic interpolation
+
         refinestart = time()
         kappa_finefits, x_fine, y_fine = UtilityFunctions.refine_map(kappa, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
         gamma1_finefits, _, _ = UtilityFunctions.refine_map(gamma1, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
