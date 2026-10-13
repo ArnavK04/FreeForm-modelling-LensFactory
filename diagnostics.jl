@@ -157,33 +157,34 @@ function main()
 
     println("loading fits data..")
     time_loadstart = time()
-    gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile(clustername)
+    if clustername == "Hera" || clustername == "Ares"
 
-    Hera_offset = 12.0      # Hera image coordinates were offset by 12 in x direction, so we need to correct for that
-    if clustername == "Hera"
-        gridx_fits .+= Hera_offset
+        gridx_fits, gridy_fits, kappa, gamma1, gamma2 = UtilityFunctions.load_fitsfile(clustername)
+        Hera_offset = 12.0      # Hera image coordinates were offset by 12 in x direction, so we need to correct for that
+        if clustername == "Hera"
+            gridx_fits .+= Hera_offset
+        end
+        kappa = Float64.(kappa)  # Ensure kappa is of type Float64
+        gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
+        gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
+        println("$(clustername) data loaded in ", time() - time_loadstart, " seconds.")
+
+        flush(stdout)
+        println("interpolating...")
+        # interpolate to a particular grid
+        order = 3  # cubic interpolation
+        refinestart = time()
+        kappa_finefits, x_fine, y_fine = UtilityFunctions.refine_map(kappa, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
+        gamma1_finefits, _, _ = UtilityFunctions.refine_map(gamma1, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
+        gamma2_finefits, _, _ = UtilityFunctions.refine_map(gamma2, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
+        magstrt = time()
+        println("interpolation done in ", magstrt - refinestart, " seconds.")
+        mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
+        println("magnification calculated in ", time() - magstrt, " seconds.")
+        flush(stdout)
+
+        cluster_path = "../$(clustername)_data/res$(res)_thres$(thres)/"
     end
-
-    kappa = Float64.(kappa)  # Ensure kappa is of type Float64
-    gamma1 = Float64.(gamma1)  # Ensure gamma1 is of type Float64
-    gamma2 = Float64.(gamma2)  # Ensure gamma2 is of type Float64
-    println("$(clustername) data loaded in ", time() - time_loadstart, " seconds.")
-
-    flush(stdout)
-    println("interpolating...")
-    # interpolate to a particular grid
-    order = 3  # cubic interpolation
-    refinestart = time()
-    kappa_finefits, gridx_finefits, gridy_finefits = UtilityFunctions.refine_map(kappa, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
-    gamma1_finefits, _, _ = UtilityFunctions.refine_map(gamma1, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
-    gamma2_finefits, _, _ = UtilityFunctions.refine_map(gamma2, gridx_fits, gridy_fits, X_lim, Y_lim, res, order)
-    magstrt = time()
-    println("interpolation done in ", magstrt - refinestart, " seconds.")
-    mag_finefits = @. 1.0 / ((1.0 - kappa_finefits)^2 - (gamma1_finefits^2 + gamma2_finefits^2))
-    println("magnification calculated in ", time() - magstrt, " seconds.")
-    flush(stdout)
-
-    cluster_path = "../$(clustername)_data/res$(res)_thres$(thres)/"
 
     kappa_dev_range = (-1.0, 2.0)
     magnif_range = (0, 100)
@@ -192,7 +193,7 @@ function main()
     elseif clustername == "Ares"
         kappa_range = (0, 3.75)
     else
-        kappa_range = (0, 3.75)
+        kappa_range = (0, 3.0)
     end
 
     if fits_flag
@@ -200,29 +201,29 @@ function main()
         mkpath(cluster_path)
 
         clusterplotstart = time()
-        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], kappa_finefits, colormap = :turbo, colorrange = kappa_range)
+        fig_, axes_ = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_, x_fine[:,1], y_fine[1,:], kappa_finefits, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_[1,2], hm; label = L"κ", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "kappa_finefits.png", fig_)
 
-        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma1_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
+        fig_, axes_ = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_, x_fine[:,1], y_fine[1,:], gamma1_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = L"γ₁", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "gamma1_finefits.png", fig_)
 
-        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], gamma2_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
+        fig_, axes_ = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_, x_fine[:,1], y_fine[1,:], gamma2_finefits, colormap = :turbo, colorrange = (-2.5, 2.5))
         cb = Colorbar(fig_[1,2], hm; label = L"γ₂", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
         save(cluster_path * "gamma2_finefits.png", fig_)
 
-        fig_, axes_ = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = magnif_range)
+        fig_, axes_ = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_, x_fine[:,1], y_fine[1,:], abs.(mag_finefits), colormap = :turbo, colorrange = magnif_range)
         cb = Colorbar(fig_[1,2], hm; label = L"|μ|", width = 20)
         xlims!(axes_, -X_lim_plot, X_lim_plot)
         ylims!(axes_, -Y_lim_plot, Y_lim_plot)
@@ -295,8 +296,8 @@ function main()
 
     # lens quantities for the truth map
     if plot_image_flag_og
-        cluster_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, false)
-        cluster_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, gridx_finefits, gridy_finefits, true)
+        cluster_lens_nokernel = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, x_fine, y_fine, false)
+        cluster_lens = FreeFormLens.init_FreeFormLens(kappa_finefits ./ adis, x_fine, y_fine, true)
         ψ_cluster, αx_cluster, αy_cluster, A_cluster = LensModel.LensModelUtils.lens_quantities(model, cluster_lens, freefull_kernel)
         clusterimgqty_tuple = (ψ_cluster, αx_cluster, αy_cluster, A_cluster)
     end
@@ -341,44 +342,47 @@ function main()
 
         mag_fine = @. 1.0 / (1.0 + adis * adis * ψxx_free * ψyy_free - adis * ψxx_free - adis * ψyy_free - adis * adis * ψxy_free^2)
 
-        println("plotting the results...")
-        fig_magdev, axes_magdev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_magdev, gridx_finefits[:,1], gridy_finefits[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-1.0, 4.0))
-        cb = Colorbar(fig_magdev[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
-        xlims!(axes_magdev, -X_lim_plot, X_lim_plot)
-        ylims!(axes_magdev, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviation.png", fig_magdev)
+        if clustername == "Hera" || clustername == "Ares"
 
-        fig_magdev2, axes_magdev2 = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_magdev2, gridx_finefits[:,1], gridy_finefits[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-4.0, 4.0))
-        cb = Colorbar(fig_magdev2[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
-        xlims!(axes_magdev2, -X_lim_plot, X_lim_plot)
-        ylims!(axes_magdev2, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviationBrBG.png", fig_magdev2)
+            println("plotting the results...")
+            fig_magdev, axes_magdev = Lenses.plot_sky(x_fine, y_fine)
+            hm = heatmap!(axes_magdev, x_fine[:,1], y_fine[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-1.0, 4.0))
+            cb = Colorbar(fig_magdev[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
+            xlims!(axes_magdev, -X_lim_plot, X_lim_plot)
+            ylims!(axes_magdev, -Y_lim_plot, Y_lim_plot)
+            save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviation.png", fig_magdev)
 
-        fig_kappadev, axes_kappadev = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_kappadev, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = kappa_dev_range)
-        cb = Colorbar(fig_kappadev[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
-        xlims!(axes_kappadev, -X_lim_plot, X_lim_plot)
-        ylims!(axes_kappadev, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviation.png", fig_kappadev)
+            fig_magdev2, axes_magdev2 = Lenses.plot_sky(x_fine, y_fine)
+            hm = heatmap!(axes_magdev2, x_fine[:,1], y_fine[1,:], (mag_fine .- mag_finefits)./mag_finefits, colormap = :BrBG, colorrange = (-4.0, 4.0))
+            cb = Colorbar(fig_magdev2[1,2], hm; label = L"(μ - μ_{truth})/μ_{truth}", width = 20)
+            xlims!(axes_magdev2, -X_lim_plot, X_lim_plot)
+            ylims!(axes_magdev2, -Y_lim_plot, Y_lim_plot)
+            save("../Diagnostics/plots/$(foldername)/$(name)_mag_rel_deviationBrBG.png", fig_magdev2)
 
-        fig_kappadev2, axes_kappadev2 = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_kappadev2, gridx_finefits[:,1], gridy_finefits[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :BrBG, colorrange = (-2.0, 2.0))
-        cb = Colorbar(fig_kappadev2[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
-        xlims!(axes_kappadev2, -X_lim_plot, X_lim_plot)
-        ylims!(axes_kappadev2, -Y_lim_plot, Y_lim_plot)
-        save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviationBrBG.png", fig_kappadev2)
+            fig_kappadev, axes_kappadev = Lenses.plot_sky(x_fine, y_fine)
+            hm = heatmap!(axes_kappadev, x_fine[:,1], y_fine[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :afmhot, colorrange = kappa_dev_range)
+            cb = Colorbar(fig_kappadev[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
+            xlims!(axes_kappadev, -X_lim_plot, X_lim_plot)
+            ylims!(axes_kappadev, -Y_lim_plot, Y_lim_plot)
+            save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviation.png", fig_kappadev)
 
-        fig_prior, axes_prior = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_prior, gridx_finefits[:,1], gridy_finefits[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = kappa_range)
+            fig_kappadev2, axes_kappadev2 = Lenses.plot_sky(x_fine, y_fine)
+            hm = heatmap!(axes_kappadev2, x_fine[:,1], y_fine[1,:], (κ_fine_ .- kappa_finefits)./kappa_finefits, colormap = :BrBG, colorrange = (-2.0, 2.0))
+            cb = Colorbar(fig_kappadev2[1,2], hm; label = L"(κ - κ_{truth})/κ_{truth}", width = 20)
+            xlims!(axes_kappadev2, -X_lim_plot, X_lim_plot)
+            ylims!(axes_kappadev2, -Y_lim_plot, Y_lim_plot)
+            save("../Diagnostics/plots/$(foldername)/$(name)_kappa_rel_deviationBrBG.png", fig_kappadev2)
+        end
+
+        fig_prior, axes_prior = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_prior, x_fine[:,1], y_fine[1,:], prior_kappa_fine_, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_prior[1,2], hm; label = L"κ_{prior}", width = 20)
         xlims!(axes_prior, -X_lim_plot, X_lim_plot)
         ylims!(axes_prior, -Y_lim_plot, Y_lim_plot)
         save("../Diagnostics/plots/$(foldername)/$(name)_prior_kappa_map.png", fig_prior)
 
-        fig_init, axes_init = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_init, gridx_finefits[:,1], gridy_finefits[1,:], init_guess_fine_, colormap = :turbo, colorrange = kappa_range)
+        fig_init, axes_init = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_init, x_fine[:,1], y_fine[1,:], init_guess_fine_, colormap = :turbo, colorrange = kappa_range)
         cb = Colorbar(fig_init[1,2], hm; label = L"κ_{init_guess}", width = 20)
         xlims!(axes_init, -X_lim_plot, X_lim_plot)
         ylims!(axes_init, -Y_lim_plot, Y_lim_plot)
@@ -401,7 +405,7 @@ function main()
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_reldiff_map.png", fig_reldiff)
 
         fig_diff, axes_diff = Lenses.plot_sky(gridx, gridy)
-        hm = heatmap!(axes_diff, gridx_finefits[:,1], gridy_finefits[1,:], κ_diff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_diff_fine_)), maximum(abs.(κ_diff_fine_))))
+        hm = heatmap!(axes_diff, x_fine[:,1], y_fine[1,:], κ_diff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_diff_fine_)), maximum(abs.(κ_diff_fine_))))
         cb = Colorbar(fig_diff[1,2], hm; label = L"κ_{diff}", width = 20)
         xlims!(axes_diff, -X_lim_plot, X_lim_plot)
         ylims!(axes_diff, -Y_lim_plot, Y_lim_plot)
@@ -409,7 +413,7 @@ function main()
         save("../Diagnostics/plots/$(foldername)/$(name)_kappa_diff_finemap.png", fig_diff)
 
         fig_reldiff, axes_reldiff = Lenses.plot_sky(gridx, gridy)
-        hm = heatmap!(axes_reldiff, gridx_finefits[:,1], gridy_finefits[1,:], κ_reldiff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_reldiff_fine_)), maximum(abs.(κ_reldiff_fine_))))
+        hm = heatmap!(axes_reldiff, x_fine[:,1], y_fine[1,:], κ_reldiff_fine_, colormap = :BrBG, colorrange = (-maximum(abs.(κ_reldiff_fine_)), maximum(abs.(κ_reldiff_fine_))))
         cb = Colorbar(fig_reldiff[1,2], hm; label = L"κ_{reldiff}", width = 20)
         xlims!(axes_reldiff, -X_lim_plot, X_lim_plot)
         ylims!(axes_reldiff, -Y_lim_plot, Y_lim_plot)
@@ -418,8 +422,8 @@ function main()
 
         println("plotting the lens magnification/kappa maps...")
 
-        fig_mag, axes_mag = Lenses.plot_sky(gridx_finefits, gridy_finefits)
-        hm = heatmap!(axes_mag, gridx_finefits[:,1], gridy_finefits[1,:], abs.(mag_fine), colormap = :turbo, colorrange = magnif_range)
+        fig_mag, axes_mag = Lenses.plot_sky(x_fine, y_fine)
+        hm = heatmap!(axes_mag, x_fine[:,1], y_fine[1,:], abs.(mag_fine), colormap = :turbo, colorrange = magnif_range)
         cb = Colorbar(fig_mag[1,2], hm; label = L"|\mu|", width = 20)
         xlims!(axes_mag, -X_lim_plot, X_lim_plot)
         ylims!(axes_mag, -Y_lim_plot, Y_lim_plot)
@@ -460,9 +464,9 @@ function main()
     if plot_image_flag_og
 
         time_start_image = time()
-        rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, gridx_finefits, gridy_finefits, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
-        fig, ax = UtilityFunctions.plot_image_scatter(model, cluster_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = cluster_path * "image_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
-        fig, ax = UtilityFunctions.plot_magnification_scatter(model, cluster_lens, gridx_finefits, gridy_finefits; save_plot = true, plot_name = cluster_path * "magnification_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
+        rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, cluster_lens_nokernel, param_ref, x_fine, y_fine, plot_image_flag_og, cluster_path, thres, cluster_qty_tuple, clusterimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_image_scatter(model, cluster_lens, x_fine, y_fine; save_plot = true, plot_name = cluster_path * "image_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
+        fig, ax = UtilityFunctions.plot_magnification_scatter(model, cluster_lens, x_fine, y_fine; save_plot = true, plot_name = cluster_path * "magnification_scatter_og.png", gridqty_tuple = cluster_qty_tuple, imgqty_tuple = clusterimgqty_tuple)
         open(cluster_path * "rms.txt", "a") do io
             println(io, "rms of image positions with threshold using truth map from $(clustername) = $(thres): " * string(rms))
             println(io, "count: ", count, ", total_img: ", total_img)
@@ -509,42 +513,78 @@ function main()
     save_fits_file(model, ψyy_free, x_fine, y_fine, "jacobian_yy_map", foldername)
     save_fits_file(model, ψxy_free, x_fine, y_fine, "jacobian_xy_map", foldername)
 
-    # saving all important arrays for cross iteration comparison
-    jldsave("../Diagnostics/plots/$(foldername)/$(name)_diagnostics.jld2",;
-        model          = model,
-        gridx_finefits = gridx_finefits,
-        gridy_finefits = gridy_finefits,
-        gridx          = gridx,
-        gridy          = gridy,
-        mag_fine       = mag_fine,
-        mag_finefits   = mag_finefits,
-        κ_fine         = κ_fine_,
-        free_qty_tuple    = free_qty_tuple,
-        freeimgqty_tuple  = freeimgqty_tuple,
-        kappa_finefits = kappa_finefits,
-        prior_kappa_fine = prior_kappa_fine_,
-        init_guess_fine  = init_guess_fine_,
-        κ_diff         = κ_diff_,
-        κ_reldiff      = κ_reldiff,
-        κ_diff_fine    = κ_diff_fine_,
-        diff_qty_tuple    = diff_qty_tuple,
-        diffimgqty_tuple  = diffimgqty_tuple,
-        κ_reldiff_fine = κ_reldiff_fine_,
-        img_pts        = makiepts,
-        X_lim_plot     = X_lim_plot,
-        Y_lim_plot     = Y_lim_plot,
-        X_lim          = X_lim,
-        Y_lim          = Y_lim,
-        cluster        = clustername,
-        res            = res,
-        thres          = thres,
-        name           = name,
-        foldername     = foldername,
-        RMS            = rms,
-        count          = count,
-        total_img      = total_img,
-        χ²             = data["chi2"]
-    )
+    if clustername == "Hera" || clustername == "Ares"
+        # saving all important arrays for cross iteration comparison
+        jldsave("../Diagnostics/plots/$(foldername)/$(name)_diagnostics.jld2",;
+            model          = model,
+            gridx_finefits = x_fine,
+            gridy_finefits = y_fine,
+            gridx          = gridx,
+            gridy          = gridy,
+            mag_fine       = mag_fine,
+            mag_finefits   = mag_finefits,
+            κ_fine         = κ_fine_,
+            free_qty_tuple    = free_qty_tuple,
+            freeimgqty_tuple  = freeimgqty_tuple,
+            kappa_finefits = kappa_finefits,
+            prior_kappa_fine = prior_kappa_fine_,
+            init_guess_fine  = init_guess_fine_,
+            κ_diff         = κ_diff_,
+            κ_reldiff      = κ_reldiff,
+            κ_diff_fine    = κ_diff_fine_,
+            diff_qty_tuple    = diff_qty_tuple,
+            diffimgqty_tuple  = diffimgqty_tuple,
+            κ_reldiff_fine = κ_reldiff_fine_,
+            img_pts        = makiepts,
+            X_lim_plot     = X_lim_plot,
+            Y_lim_plot     = Y_lim_plot,
+            X_lim          = X_lim,
+            Y_lim          = Y_lim,
+            cluster        = clustername,
+            res            = res,
+            thres          = thres,
+            name           = name,
+            foldername     = foldername,
+            RMS            = rms,
+            count          = count,
+            total_img      = total_img,
+            χ²             = data["chi2"]
+        )
+    else
+        jldsave("../Diagnostics/plots/$(foldername)/$(name)_diagnostics.jld2",;
+            model          = model,
+            gridx_finefits = x_fine,
+            gridy_finefits = y_fine,
+            gridx          = gridx,
+            gridy          = gridy,
+            mag_fine       = mag_fine,
+            κ_fine         = κ_fine_,
+            free_qty_tuple    = free_qty_tuple,
+            freeimgqty_tuple  = freeimgqty_tuple,
+            prior_kappa_fine = prior_kappa_fine_,
+            init_guess_fine  = init_guess_fine_,
+            κ_diff         = κ_diff_,
+            κ_reldiff      = κ_reldiff,
+            κ_diff_fine    = κ_diff_fine_,
+            diff_qty_tuple    = diff_qty_tuple,
+            diffimgqty_tuple  = diffimgqty_tuple,
+            κ_reldiff_fine = κ_reldiff_fine_,
+            img_pts        = makiepts,
+            X_lim_plot     = X_lim_plot,
+            Y_lim_plot     = Y_lim_plot,
+            X_lim          = X_lim,
+            Y_lim          = Y_lim,
+            cluster        = clustername,
+            res            = res,
+            thres          = thres,
+            name           = name,
+            foldername     = foldername,
+            RMS            = rms,
+            count          = count,
+            total_img      = total_img,
+            χ²             = data["chi2"]
+        )
+    end
 
 end
 
