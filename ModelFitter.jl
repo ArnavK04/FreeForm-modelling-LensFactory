@@ -69,99 +69,6 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
 
 end
 
-function give_inversehessian(κ::M, prior_kappa::M, gridx::M, gridy::M, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}) where {M <: ROA}
-    """
-    Returns the covariance matrix (inverse Hessian) of the convergence map κ. This assumes a 
-    gaussian distribution near the minimum of the target function.
-    """
-    κ_vec = vec(κ)
-    hessian = zeros(length(κ_vec), length(κ_vec))
-
-    f0 = neg_logpost_MEM_κ(κ_vec)
-    buf1 = copy(κ_vec)
-    buf2 = copy(κ_vec)
-    buf3 = copy(κ_vec)      # making three copies here 
-
-    @showprogress "Computing Hessian..." for i in eachindex(κ_vec)
-
-        hi = max(1e-8, abs(κ_vec[i]) * 1e-5)  # step size based on the magnitude of κ_vec[i]
-        buf1[i] += hi
-        f1 = neg_logpost_MEM_κ(buf1)
-
-        for j in eachindex(κ_vec)
-
-            if i != j
-                hj = max(1e-8, abs(κ_vec[j]) * 1e-5)  # step size based on the magnitude of κ_vec[j]
-                buf2[i] += hi
-                buf2[j] += hj
-                f2 = neg_logpost_MEM_κ(buf2)
-
-                buf3[j] += hj
-                f3 = neg_logpost_MEM_κ(buf3)
-
-                hessian[i, j] = (f2 - f1 - f3 + f0) / (hi * hj)
-
-                # Reset the buffers for the next iteration
-                buf2[j] = κ_vec[j]
-                buf3[j] = κ_vec[j]
-                buf2[i] = κ_vec[i]
-            else
-                buf2[i] -= hi
-                f2 = neg_logpost_MEM_κ(buf2)
-                hessian[i, i] = (f1 - 2 * f0 + f2) / (hi^2)
-                buf2[i] = κ_vec[i]
-            end
-        end
-        buf1[i] = κ_vec[i]
-    end    
-
-    return inv(hessian)
-
-end
-
-function give_inversehessian_fast(κ::M, prior_kappa::M, gridx::M, gridy::M, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}) where {M <: ROA}
-    κ_vec = vec(κ)
-    n = length(κ_vec)
-    
-    hessian = zeros(n, n)
-    
-    cache = FiniteDiff.HessianCache(κ_vec)
-    
-    FiniteDiff.finite_difference_hessian!(
-        hessian, 
-        x -> neg_logpost_MEM_κ(x), 
-        κ_vec, 
-        cache
-    )
-    
-    return inv(hessian)
-end
-
-function give_errormap(hessian::M) where M <: ROA
-    """
-    Computes the error map from the inverse Hessian matrix.
-    """
-    global gridx
-    diag_elements = diag(hessian)
-    if any(diag_elements .< 0)
-        println("Warning: Negative diagonal elements in Hessian.")
-        println("There are $(sum(diag_elements .< 0)) negative diagonal elements out of $(length(diag_elements)).")
-        return nothing
-    end
-    errormap = reshape(sqrt.(diag_elements), size(gridx))
-    return errormap
-end
-
-function print_ram_stats(_)
-    """
-    Just prints the RAM usage statistics of the current process and the system.
-    """
-    println("My process peak RSS: ", round(Sys.maxrss()/2^20, digits=1), " MB")
-    println("Node free RAM (all processes): ", round(Sys.free_memory()/2^30, digits=2), " GB", 
-            "  Node total RAM: ", round(Sys.total_memory()/2^30, digits=2), " GB")
-    return false
-end
-
 function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile)   
 
     t0 = time()
@@ -244,29 +151,18 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     κ0 = vec(new_guess)
     θ0 = log.(κ0)  # Initial guess in θ space
 
-    # testing grad provided by finitediff module
-    function g!(grad_vec_θ, θ_vec)
-        FiniteDiff.finite_difference_gradient!(grad_vec_θ, neg_logpost_MEM, θ_vec)
-        return grad_vec_θ
-    end
-
     result = optimize(
         neg_logpost_MEM,
         logpost_grad!,
-        #g!,
         θ0,
         Optim.LBFGS(linesearch = LineSearches.HagerZhang()),
         Optim.Options(
             store_trace  = true,
             show_trace  = true,
             show_every  = 100,
-            #time_limit  = 43200,  # 12 hours
             g_tol       = 1e-2,
-            #callback = print_ram_stats,
-            #extended_trace = true,
 	    iterations = 5000
         ),
-        #autodiff  = AutoFiniteDiff(),
     )
 
     t1 = time()
@@ -279,8 +175,6 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
 
     println("Stopped by:  ", result.stopped_by)
     println("Final value: ", Optim.minimum(result))
-
-    # WILL MOVE HESSIAN CALC TO A DIFFEENT FILE ALTOGETHER. IT NEEDS PARALLELIZATION.
 
     println("Converged:     ", Optim.converged(result))
     println("Iterations:    ", Optim.iterations(result))

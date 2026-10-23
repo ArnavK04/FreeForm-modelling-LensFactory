@@ -109,18 +109,6 @@ function load_fitsfile(filename::String)
     return gridx_fits[2:end, 2:end], gridy_fits[2:end, 2:end], kappa, gamma1, gamma2    # because the fits arrays are 2048, but grid_fits are 2049
 end
 
-function make_gridfrom_model(model::LensModel.ModelConfig)
-    """
-    Constructs a grid based on the model configuration.
-    Returns the grid coordinates (gridx, gridy).
-    """
-    X_max, Y_max = model.observation.FOV
-    pixel_scale = model.observation.pixel_scale
-    gridx, gridy = Lenses.get_meshgrid(0.5 * X_max, 0.5 * Y_max, pixel_scale)
-
-    return gridx, gridy
-end
-
 function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path, gridqty_tuple::NTuple{6, M}, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
     """
     Predicts the image positions based on the lens model and source positions.
