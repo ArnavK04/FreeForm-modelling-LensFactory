@@ -221,7 +221,7 @@ function main()
         kappa_reldev = (d["κ_fine"] .- d["kappa_finefits"]) ./ d["kappa_finefits"]
         kappa_diff_log = log10.(abs.(d["κ_diff"]))
         kappa_reldiff_log = log10.(abs.(d["κ_reldiff"]))
-        if false
+        if true
             diff_qty_tuple = d["diff_qty_tuple"]
             psi_diff, αx_diff, αy_diff, ψxx_diff, ψyy_diff, ψxy_diff = diff_qty_tuple
             datas[i]["__psi_diff"] = log10.(abs.(psi_diff))
@@ -250,7 +250,7 @@ function main()
         datas[i]["__kappa_reldiff_fine_log"] = log10.(abs.(d["κ_reldiff_fine"]))
     end
 
-    if false
+    if true
         fig = plot_quantity_row(names, datas, "__psi_diff", "gridx_finefits", "gridy_finefits";
                                 colormap = :BrBG, colorrange = (-4.0, 1.0), symmetric = true, label = L"ψ_i - ψ_{i-1}", img_color = :blue, show_images = true)
         save(joinpath(outdir, "compare_psi_diff.png"), fig)
