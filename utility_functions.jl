@@ -624,7 +624,7 @@ function logprior_grad!(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: RO
 
 end
 
-function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where {M <: ROA, N <: ROA}
+function loglikelihood_grad_fd!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where {M <: ROA, N <: ROA}
     """
     Compute the gradient of log-likelihood wrt κ.
     This function uses finite differences to approximate the gradient.
@@ -651,5 +651,189 @@ function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, mode
     end
     return vec(ll_grad)
 end
+
+
+# --------------------------------------------------------------------------------------------------
+# Functions
+# --------------------------------------------------------------------------------------------------
+@inline function _inverse(a11, a12, a21, a22)
+   det = a11*a22 - a12*a21
+   if det == 0.0
+      @warn "Singular 2x2 matrix."
+      return 0.0, 0.0, 0.0, 0.0
+   end
+
+   ia11 =  a22 / det
+   ia12 = -a12 / det
+   ia21 = -a21 / det
+   ia22 =  a11 / det
+
+   return ia11, ia12, ia21, ia22
+end
+
+# Inverse and rotated covariance matrix (θ from +x axis in CCW direction)
+@inline function _inverse_covariance(σx, σy, θ)
+   # Cosine and sine of the angle
+   cθ = cos(θ)
+   sθ = sin(θ)
+
+   # S = Rᵀ * diag(σx², σy²) * R
+   S11 = σx^2 * cθ^2 + σy^2 * sθ^2
+   S12 = (σx^2 - σy^2) * sθ * cθ
+   S21 = S12
+   S22 = σx^2 * sθ^2 + σy^2 * cθ^2
+
+   return _inverse(S11, S12, S21, S22)
+end
+
+@inline function _weighted_position(βx::Vector{Float64}, βy::Vector{Float64}, A::NTuple{4, Vector{Float64}}, σx::Vector{Float64}, σy::Vector{Float64}, θ::Vector{Float64}, n::Int64)
+   # Weight matrix: W = Σᵢ μᵢᵀ * Sᵢ⁻¹ * μᵢ
+   sumW11 = 0.0
+   sumW12 = 0.0
+   sumW21 = 0.0
+   sumW22 = 0.0
+
+   # Individual weight matrices
+   W_all = Vector{NTuple{4,Float64}}(undef, n)
+   iS_all = Vector{NTuple{4,Float64}}(undef, n)
+
+   # Position vector: b = Σᵢ μᵢᵀ * Sᵢ⁻¹ * μᵢ * βᵢ
+   b1 = 0.0
+   b2 = 0.0
+   
+   @inbounds for i in 1:n
+      # Cosine and sine of the angle
+      cθ = cos(θ[i])
+      sθ = sin(θ[i])
+
+      # μ = A⁻¹
+      μ11, μ12, μ21, μ22 = _inverse(A[1][i], A[2][i], A[3][i], A[4][i])
+
+      # Inverse covariance matrix
+      iS11, iS12, iS21, iS22 = _inverse_covariance(σx[i], σy[i], θ[i])
+      iS_all[i] = (iS11, iS12, iS21, iS22)
+
+      # T = S⁻¹ * μ
+      T11 = iS11 * μ11 + iS12 * μ21
+      T12 = iS11 * μ12 + iS12 * μ22
+      T21 = iS21 * μ11 + iS22 * μ21
+      T22 = iS21 * μ12 + iS22 * μ22
+
+      # W = μᵀ * T 
+      W11 = μ11 * T11 + μ21 * T21
+      W12 = μ11 * T12 + μ21 * T22
+      W21 = μ12 * T11 + μ22 * T21
+      W22 = μ12 * T12 + μ22 * T22
+
+      # Store individual weight matrix
+      W_all[i] = (W11, W12, W21, W22)
+
+      # Accumulate total W and Vector b
+      sumW11 += W11
+      sumW12 += W12
+      sumW21 += W21
+      sumW22 += W22
+
+      # b = μᵀ * T * β
+      b1 = b1 + (W11 * βx[i] + W21 * βy[i])
+      b2 = b2 + (W12 * βx[i] + W22 * βy[i])
+   end
+
+   # Solve for the source position: β_model = W⁻¹ * b
+   iW11, iW12, iW21, iW22 = _inverse(sumW11, sumW12, sumW21, sumW22)
+   βx_model = iW11 * b1 + iW12 * b2
+   βy_model = iW21 * b1 + iW22 * b2
+   
+   return βx_model, βy_model, W_all, iS_all
+end
+
+function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where {M <: ROA, N <: ROA}
+
+    g = zeros(length(κ_vec))
+
+    κ = reshape(κ_vec, size(prior_kappa))  # Reshape κ_vec to match the shape of prior_kappa
+    lens = Main.FreeFormLens.init_FreeFormLens(κ, gridx, gridy, true)
+    adis = LensModel.LensModelUtils.adis_current(model, param_ref)
+
+    _, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, lens, full_kernel)
+
+    # Identity tuple
+    I4 = (1.0, 0.0, 0.0, 1.0)
+
+    sid = 1
+    kid = 1
+    for src in model.source_config.sources
+        # Distance ratio for this source
+        adis_value = adis[sid]
+        
+        for knot in src.knots
+            # Knot positions and measurement errors
+            x  = knot.x
+            y  = knot.y
+            σx = knot.σx
+            σy = knot.σy
+            σθ = knot.σθ         
+            n  = length(x)
+            sub_kernel = full_kernel[kid]
+       
+            # Deflection vector at the knot positions
+            αx = @. adis_value * αx_all[kid]
+            αy = @. adis_value * αy_all[kid]
+
+            # Deformation tensor at the knot positions
+            A = @. adis_value * A_all[kid]
+            for i in eachindex(A)
+                @. A[i] = I4[i] - A[i]
+            end
+
+            # Individual source positions using broadcasting
+            βx_ind = @. x - αx
+            βy_ind = @. y - αy
+
+            # Get weighted source position (Section 4.1 in https://arxiv.org/pdf/astro-ph/0102340)
+            βx_model, βy_model, W_all, iS_all = _weighted_position(βx_ind, βy_ind, A, σx, σy, σθ, n)
+
+            for i in 1:n
+
+                αx_kernel = sub_kernel[i][2]     # a matrix of size (length(gridx), length(gridy)) containing the ψx_mn values for each cell in the grid for the i-th knot position.
+                αy_kernel = sub_kernel[i][3] 
+                Jxx_kernel = sub_kernel[i][4]
+                Jyy_kernel = sub_kernel[i][5]
+                Jxy_kernel = sub_kernel[i][6] 
+
+                # finding componenets of term 1
+
+                δβx = βx_ind[i] - βx_model
+                δβy = βy_ind[i] - βy_model
+
+                # weight matrix components for knot i
+                w11, w12, w21, w22 = W_all[i]
+
+                w1 = w11 * δβx + w12 * δβy
+                w2 = w21 * δβx + w22 * δβy
+
+                T1 = @. (w1 * αx_kernel + w2 * αy_kernel)
+
+                # finding components of term 2
+
+                # Inverse of the deformation tensor A at knot i
+                μ11, μ12, μ21, μ22 = _inverse(A[1][i], A[2][i], A[3][i], A[4][i])
+
+                # s_i =  μ_i * δβ_i
+                s1 = μ11 * δβx + μ12 * δβy
+                s2 = μ21 * δβx + μ22 * δβy
+
+                T2 = @. Jxx_kernel * s1 * w1 + Jyy_kernel * s2 * w2 + Jxy_kernel * (s1 * w2 + s2 * w1)
+
+                g .+= adis_value .* vec(T2 .- T1)
+            end
+
+            kid = kid + 1
+        end
+        sid = sid + 1
+    end
+    return g ./ π
+end
+
 
 end
