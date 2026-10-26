@@ -161,7 +161,6 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             show_trace  = true,
             show_every  = 100,
             g_tol       = 1e-2,
-	    iterations = 5000
         ),
     )
 

@@ -193,6 +193,8 @@ function main()
         kappa_range = (0, 2.70)
     elseif clustername == "Ares"
         kappa_range = (0, 3.75)
+    elseif clustername == "SMACS0723"
+        kappa_range = (0, 2.0)
     else
         kappa_range = (0, 3.0)
     end
