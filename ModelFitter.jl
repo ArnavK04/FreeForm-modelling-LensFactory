@@ -69,7 +69,7 @@ function logpost_grad!(grad_vec_θ::M, θ_vec::M) where M <: ROA
 
 end
 
-function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile)   
+function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile; del_flag = true, f_reltol = 1e-4, diagnostics = Dict{String, Vector{Float64}}(), n = 1)
 
     t0 = time()
 
@@ -83,6 +83,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     fin_res = resolution
     Y_LIM = gridy[1, end]
     X_LIM = gridx[end, 1]
+    thres = 4.0       # fixing these 3 for now
     # get full_kernel for the run
     full_kernel = FreeFormLens.compute_fullkernel(model, gridx, gridy)
 
@@ -107,6 +108,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
         κ_prev_ = copy(data["κ_map"])
         gridx_ = data["gridx"]
         gridy_ = data["gridy"]
+        neg_logpost_prev = data["neg_logpost"]
 
         res_ = gridx_[2,1] - gridx_[1,1]
         X_LIM = gridx_[end,1]
@@ -160,7 +162,7 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
             store_trace  = true,
             show_trace  = true,
             show_every  = 100,
-            g_tol       = 1e-2,
+            f_reltol     = f_reltol
         ),
     )
 
@@ -182,8 +184,21 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     println("Gradient norm: ", result.g_residual)
 
     # final chi2
-    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy, true)            # general diagnostics lens, so no computing kernel here
+    final_lens = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy, true)            
     final_chi2 = 2 * LikelihoodFunctions.neg_loglikelihood_MEM(model, final_lens, param_ref, full_kernel)
+
+    final_lens_nokernel = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy)            # general diagnostics lens, so no computing kernel here
+
+    println("computing lens quantities for the final converged map...")
+    time_start_ = time()
+    αx_free, αy_free = Lenses.get_deflection(final_lens_nokernel, gridx, gridy)
+    free_qty_tuple = (nothing, αx_free, αy_free, nothing, nothing, nothing)
+    println("lens quantities computed for the final converged map in $(time() - time_start_) seconds.")
+    println("--------------------------------------------------------------------")
+    rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, final_lens_nokernel, param_ref, gridx, gridy, false, nothing, thres, free_qty_tuple, full_kernel)
+    println("RMS scatter in image plane for the final converged map: ", rms, " arcsec")
+    println("Number of images counted for RMS scatter: ", count, " out of total images: ", total_img)
+    println("--------------------------------------------------------------------")
 
     println("\nFinal -ve log likelihood (approx): ", final_chi2)
     println("\nFinal -ve log posterior (approx): ", neg_logpost_MEM(vec(θ_map))) 
@@ -197,6 +212,12 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     println("Mean absolute change in kappa = $(mean(abs.(κ_diff)))")
     println("Mean relative change in kappa = $(mean(abs.(κ_reldiff)))")
     println("------------------------------------------")
+
+    if n == 1 
+        neglogpostdiff = nothing
+    else
+        neglogpostdiff = (neg_logpost_MEM(vec(θ_map)) - neg_logpost_prev)/neg_logpost_prev
+    end
 
     jldsave("../Diagnostics/files/$(filename_tosave).jld2";
         model_config = model,
@@ -227,12 +248,27 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
         cluster      = clustername
     )
 
+    if del_flag         # delete previous results file if delete flag is set to true
+        println("Deleting previous results file: $(prevfile)")
+        rm("../Diagnostics/files/$(prevfile).jld2", force=true)
+    end
+
     t3 = time()
+    println("--------------------------------------------------------------------")
     println("Time taken for optimization: ", t1 - t0, " seconds")
     println("Total time taken: ", t3 - t0, " seconds or ", (t3 - t0)/3600.0, " hours.")
     println("--------------------------------------------------------------------")
 
-    return filename_tosave, runnumber, prevfile
+    # pushing diagnostics to the dictionary
+    diagnostics["chi2_src"] = push!(diagnostics["chi2_src"], final_chi2)
+    diagnostics["time_per_iteration"] = push!(diagnostics["time_per_iteration"], t3 - t0)
+    diagnostics["f_value"] = push!(diagnostics["f_value"], neg_logpost_MEM(vec(θ_map)))
+    diagnostics["kappa_mean_relchange"] = push!(diagnostics["kappa_mean_relchange"], mean(abs.(κ_reldiff)))
+    diagnostics["kappa_max_relchange"] = push!(diagnostics["kappa_max_relchange"], maximum(abs.(κ_reldiff)))
+    diagnostics["img_rms"] = push!(diagnostics["img_rms"], rms)
+    diagnostics["img_counted"] = push!(diagnostics["img_counted"], count)
+
+    return filename_tosave, runnumber, prevfile, diagnostics, neglogpostdiff
 
 end
 
@@ -295,6 +331,22 @@ function main()
             help = "Path to the previous file containing the converged map."
             arg_type = String
             default = nothing
+        "--Max_runs"
+            help = "Maximum number of runs to perform."
+            arg_type = Float64
+            default = Inf
+        "--f_reltol"
+            help = "Relative tolerance for the optimizer for each optimization. The optimizer for individual optimization stops here."
+            arg_type = Float64
+            default = 1e-4
+        "--f_reltol_final"
+            help = "Final relative tolerance across each iteration. The code stops when this tolerance is reached."
+            arg_type = Float64
+            default = 1e-3
+        "--save_freq"
+            help = "Every N iterations, save the results."
+            arg_type = Int
+            default = 10     
     end
 
     args = parse_args(settings)
@@ -312,45 +364,67 @@ function main()
     p_value = args["p_value"]
     clustername = args["cname"]
     prevfile = args["prevfile"]
+    max_runs = args["Max_runs"]
+    f_reltol = args["f_reltol"]
+    f_reltol_final = args["f_reltol_final"]
+    save_freq = args["save_freq"]
 
     if clustername == "NotSpecified"
         println("Cluster name not specified. Please provide a valid cluster name using the --cname argument.")
         exit(1)
     end
 
+    diagnostics = Dict{String, Vector{Float64}}() # dictionary to store diagnostics for each run
+    diagnostics["chi2_src"] = Float64[]
+    diagnostics["img_rms"] = Float64[]
+    diagnostics["img_counted"] = Float64[]
+    diagnostics["time_per_iteration"] = Float64[]
+    diagnostics["f_value"] = Float64[]
+    diagnostics["kappa_mean_relchange"] = Float64[]
+    diagnostics["kappa_max_relchange"] = Float64[]
+
     t00 = time()
 
-    saved_file, used_runnumber, used_file = run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile)  # first run
-    println(saved_file, "--------------", used_runnumber, "-------------", used_file)
-    saved_file2, used_runnumber2, used_file2 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber, p_value, clustername, saved_file)  # second run
-    println(saved_file2, "--------------", used_runnumber, "-------------", used_file2)
-    saved_file3, used_runnumber3, used_file3 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber2 + 1, p_value, clustername, saved_file2)  # third run
-    println(saved_file3, "--------------", used_runnumber3, "-------------", used_file3)
-    saved_file4, used_runnumber4, used_file4 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber3 + 1, p_value, clustername, saved_file3)  # fourth run
-    println(saved_file4, "--------------", used_runnumber4, "-------------", used_file4)
-    saved_file5, used_runnumber5, used_file5 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber4 + 1, p_value, clustername, saved_file4)  # fifth run
-    println(saved_file5, "--------------", used_runnumber5, "-------------", used_file5)
-    saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run
-    println(saved_file6, "--------------", used_runnumber6, "-------------", used_file6)
-    saved_file7, used_runnumber7, used_file7 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber6 + 1, p_value, clustername, saved_file6)  # seventh run
-    println(saved_file7, "--------------", used_runnumber7, "-------------", used_file7)
-    saved_file8, used_runnumber8, used_file8 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber7 + 1, p_value, clustername, saved_file7)  # eighth run
-    println(saved_file8, "--------------", used_runnumber8, "-------------", used_file8)
-    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run
-    println(saved_file9, "--------------", used_runnumber9, "-------------", used_file9)
-    saved_file10, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run
-    println(saved_file10, "--------------", used_runnumber10, "-------------", used_file10)
+    # start from here
+    delete_prevresults = false
+    n = 1
+    saved_file, used_runnumber, used_file, diagnostics, neglogpostdiff = run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, guess_value, runnumber, p_value, clustername, prevfile; del_flag = delete_prevresults, f_reltol = f_reltol, diagnostics = diagnostics, n = n)      # 1st run
+    println("-----------------------------------------")
+    println("time taken for iteration n = $(n) : $(time() - t00) seconds")
+    println("-----------------------------------------")
+    n += 1
+    while (n <= max_runs)
+        println("-----------------------------------------")
+        println("Starting run number: ", n)
+        println("------------------------------------------")
 
-    """saved_file6, used_runnumber6, used_file6 = run_optimizer(seed, input_file, pix, sigma, g_flag, true, false, guess_value, used_runnumber5 + 1, p_value, clustername, saved_file5)  # sixth run higher res
-    println(saved_file6, "--------------", used_runnumber6, "-------------", used_file6)
-    saved_file7, used_runnumber7, used_file7 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber6 + 1, p_value, clustername, saved_file6)  # seventh run higher res
-    println(saved_file7, "--------------", used_runnumber7, "-------------", used_file7)
-    saved_file8, used_runnumber8, used_file8 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber7 + 1, p_value, clustername, saved_file7)  # eighth run higher res
-    println(saved_file8, "--------------", used_runnumber8, "-------------", used_file8)
-    saved_file9, used_runnumber9, used_file9 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber8 + 1, p_value, clustername, saved_file8)  # ninth run higher res
-    println(saved_file9, "--------------", used_runnumber9, "-------------", used_file9)
-    saved_file9, used_runnumber10, used_file10 = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber9 + 1, p_value, clustername, saved_file9)  # tenth run higher res
-    println(saved_file9, "--------------", used_runnumber10, "-------------", used_file10)"""
+
+        if mod(n, save_freq) == 1 && n!= 1
+            delete_prevresults = false
+        else
+            delete_prevresults = true
+        end
+
+        if n == 2
+            saved_file, used_runnumber, used_file, diagnostics, neglogpostdiff = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber, p_value, clustername, saved_file; del_flag = delete_prevresults, f_reltol = f_reltol, diagnostics = diagnostics, n = n)
+        else
+            saved_file, used_runnumber, used_file, diagnostics, neglogpostdiff = run_optimizer(seed, input_file, pix, sigma, g_flag, false, true, guess_value, used_runnumber + 1, p_value, clustername, saved_file, del_flag = delete_prevresults, f_reltol = f_reltol, diagnostics = diagnostics, n = n)
+        end
+        n += 1
+        println("-----------------------------------------")
+        println("time taken for iteration n = $(n-1) : $(time() - t00) seconds")
+        println("-----------------------------------------")
+
+        if !isnothing(neglogpostdiff) && abs(neglogpostdiff) < f_reltol_final
+            println("Convergence reached with relative change in negative log-posterior: $(neglogpostdiff) < $(f_reltol_final)")
+            break
+        end
+    end
+
+    jldsave("../Diagnostics/files/$(saved_file)diagnostic_all.jld2";
+        diagnostics = diagnostics,
+        total_runs = n-1,
+    )
 
     println("All runs done. Total time taken: ", time() - t00, " seconds or ", (time() - t00)/3600, " hours.")
 
