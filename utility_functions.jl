@@ -109,7 +109,7 @@ function load_fitsfile(filename::String)
     return gridx_fits[2:end, 2:end], gridy_fits[2:end, 2:end], kappa, gamma1, gamma2    # because the fits arrays are 2048, but grid_fits are 2049
 end
 
-function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path, gridqty_tuple, kidqty_tuple) where {T <: RV, N <: ROA}
+function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path, gridqty_tuple, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
     """
     Predicts the image positions based on the lens model and source positions.
     """
@@ -148,7 +148,7 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     
 end
 
-function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path, thres::Float64, gridqty_tuple, imgqty_tuple)
+function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path, thres::Float64, gridqty_tuple, imgqty_tuple) where {M <: ROA}
 
     adis = LensModel.LensModelUtils.adis_current(model, param_ref)
 
