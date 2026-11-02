@@ -331,7 +331,7 @@ function main()
             help = "Path to the previous file containing the converged map."
             arg_type = String
             default = nothing
-        "--Max_runs"
+        "--max_runs"
             help = "Maximum number of runs to perform."
             arg_type = Float64
             default = Inf
@@ -346,7 +346,7 @@ function main()
         "--save_freq"
             help = "Every N iterations, save the results."
             arg_type = Int
-            default = 10     
+            default = 0     
     end
 
     args = parse_args(settings)
@@ -364,7 +364,7 @@ function main()
     p_value = args["p_value"]
     clustername = args["cname"]
     prevfile = args["prevfile"]
-    max_runs = args["Max_runs"]
+    max_runs = args["max_runs"]
     f_reltol = args["f_reltol"]
     f_reltol_final = args["f_reltol_final"]
     save_freq = args["save_freq"]
@@ -398,8 +398,7 @@ function main()
         println("Starting run number: ", n)
         println("------------------------------------------")
 
-
-        if mod(n, save_freq) == 1 && n!= 1
+        if save_freq != 0 && mod(n, save_freq) == 1 && n!= 1
             delete_prevresults = false
         else
             delete_prevresults = true
