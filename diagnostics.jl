@@ -547,7 +547,7 @@ function main()
     save("../Diagnostics/plots/$(foldername)/$(name)_trace_diagnostics.png", fig)
 
     # plotting diagnostics for all the runs
-    fig, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8 = UtilityFunctions.plot_allruns_diagnostics(name)
+    fig, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8 = plot_allruns_diagnostics(name)
     save("../Diagnostics/plots/$(foldername)/$(name)_allruns_diagnostics.png", fig)
 
     println("done")
