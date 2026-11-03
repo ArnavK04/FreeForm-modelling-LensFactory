@@ -189,13 +189,15 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
 
     final_lens_nokernel = FreeFormLens.init_FreeFormLens(κ_map, gridx, gridy)            # general diagnostics lens, so no computing kernel here
 
+    ψ_all, αx_all, αy_all, A_all = LensModel.LensModelUtils.lens_quantities(model, final_lens, full_kernel)
+    finalimgqty_tuple = (ψ_all, αx_all, αy_all, A_all)
     println("computing lens quantities for the final converged map...")
     time_start_ = time()
     αx_free, αy_free = Lenses.get_deflection(final_lens_nokernel, gridx, gridy)
     free_qty_tuple = (nothing, αx_free, αy_free, nothing, nothing, nothing)
     println("lens quantities computed for the final converged map in $(time() - time_start_) seconds.")
     println("--------------------------------------------------------------------")
-    rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, final_lens_nokernel, param_ref, gridx, gridy, false, nothing, thres, free_qty_tuple, full_kernel)
+    rms, count, total_img = UtilityFunctions.give_image_rmsscatter(model, final_lens_nokernel, param_ref, gridx, gridy, false, nothing, thres, free_qty_tuple, finalimgqty_tuple)
     println("RMS scatter in image plane for the final converged map: ", rms, " arcsec")
     println("Number of images counted for RMS scatter: ", count, " out of total images: ", total_img)
     println("--------------------------------------------------------------------")
