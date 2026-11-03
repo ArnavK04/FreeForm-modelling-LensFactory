@@ -221,6 +221,9 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
         neglogpostdiff = (neg_logpost_MEM(vec(θ_map)) - neg_logpost_prev)/neg_logpost_prev
     end
 
+    println("Relative change in negative log-posterior wrt previous run: ", neglogpostdiff)
+    println("--------------------------------------------------------------------")
+
     jldsave("../Diagnostics/files/$(filename_tosave).jld2";
         model_config = model,
         κ_map        = κ_map,
@@ -340,7 +343,7 @@ function main()
         "--f_reltol"
             help = "Relative tolerance for the optimizer for each optimization. The optimizer for individual optimization stops here."
             arg_type = Float64
-            default = 1e-4
+            default = 1e-6
         "--f_reltol_final"
             help = "Final relative tolerance across each iteration. The code stops when this tolerance is reached."
             arg_type = Float64
