@@ -115,7 +115,7 @@ function plot_allruns_diagnostics(filename::String)
     lines!(ax3, 1:total_runs, img_counted, color = :blue)
     lines!(ax4, 1:total_runs, time_per_iteration, color = :blue)
     lines!(ax5, 1:total_runs, f_value, color = :blue)
-    lines!(ax6, 1:total_runs, f_relchange, color = :blue)
+    lines!(ax6, 2:total_runs, f_relchange, color = :blue)
     lines!(ax7, 1:total_runs, kappa_mean_relchange, color = :blue)
     lines!(ax8, 1:total_runs, kappa_max_relchange, color = :blue)
 
