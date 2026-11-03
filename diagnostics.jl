@@ -81,6 +81,48 @@ function save_fits_file(model::LensModel.ModelConfig, map::M, x_grid::M, y_grid:
     return nothing
 end
 
+function plot_allruns_diagnostics(filename::String)
+
+    file = "../Diagnostics/files/$(filename)diagnostic_all.jld2"
+
+    data = load(file)
+    diagnostics = data["diagnostics"]
+    total_runs = data["total_runs"]
+
+    chi2_src = diagnostics["chi2_src"]
+    img_rms = diagnostics["img_rms"]
+    img_counted = diagnostics["img_counted"]
+    time_per_iteration = diagnostics["time_per_iteration"]
+    f_value = diagnostics["f_value"]
+    kappa_mean_relchange = diagnostics["kappa_mean_relchange"]
+    kappa_max_relchange = diagnostics["kappa_max_relchange"]
+
+    f_relchange = diff(f_value) ./ f_value[1:end-1]
+
+    fig = Figure(resolution = (1200, 800))
+
+    ax1 = Axis(fig[1,1], xlabel = "n", ylabel = L"\chi^2_{src}")
+    ax2 = Axis(fig[1,2], xlabel = "n", ylabel = "Image RMS (arcsec)")
+    ax3 = Axis(fig[1,3], xlabel = "n", ylabel = "Images Counted")
+    ax4 = Axis(fig[1,4], xlabel = "n", ylabel = "Time per Iteration (s)")
+    ax5 = Axis(fig[2,1], xlabel = "n", ylabel = "F Value")
+    ax6 = Axis(fig[2,2], xlabel = "n", ylabel = "F Relative Change")
+    ax7 = Axis(fig[2,3], xlabel = "n", ylabel = L"\left( \frac{\delta \kappa}{\kappa} \right)_{mean}")
+    ax8 = Axis(fig[2,4], xlabel = "n", ylabel = L"\left( \frac{\delta \kappa}{\kappa} \right)_{max}")
+
+    lines!(ax1, 1:total_runs, chi2_src, color = :blue)
+    lines!(ax2, 1:total_runs, img_rms, color = :blue)
+    lines!(ax3, 1:total_runs, img_counted, color = :blue)
+    lines!(ax4, 1:total_runs, time_per_iteration, color = :blue)
+    lines!(ax5, 1:total_runs, f_value, color = :blue)
+    lines!(ax6, 1:total_runs, f_relchange, color = :blue)
+    lines!(ax7, 1:total_runs, kappa_mean_relchange, color = :blue)
+    lines!(ax8, 1:total_runs, kappa_max_relchange, color = :blue)
+
+    return fig, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8
+
+end
+
 function main()
 
     time_start = time()
@@ -502,8 +544,12 @@ function main()
 
     println("plotting trace diagnostics...")
     fig, ax1, ax2, ax3, ax4, ax5 = UtilityFunctions.plot_trace_stats(traceofrun)
-
     save("../Diagnostics/plots/$(foldername)/$(name)_trace_diagnostics.png", fig)
+
+    # plotting diagnostics for all the runs
+    fig, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8 = UtilityFunctions.plot_allruns_diagnostics(name)
+    save("../Diagnostics/plots/$(foldername)/$(name)_allruns_diagnostics.png", fig)
+
     println("done")
     println("------------------------------")
 
