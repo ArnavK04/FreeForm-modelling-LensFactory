@@ -682,7 +682,8 @@ end
 # so no need to calculate the lens quantities again and again. Just use the pre-computed lens quantities.
 # for these functions, only replaced lens argument with the tuple containing pre-computed lens quantities.
 
-function Lenses.get_image(gridqty_tuple::NTuple{6, T}, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}) where T <: Matrix{<:RV}
+function Lenses.get_image(gridqty_tuple, θx::T, θy::T, adis::Float64, β::NTuple{2, RV}) where T <: Matrix{<:RV}
+
    # Get the potential gradient
    ψx, ψy = gridqty_tuple[2], gridqty_tuple[3]
 
