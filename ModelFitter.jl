@@ -399,6 +399,8 @@ function main()
     println("-----------------------------------------")
     n += 1
     while (n <= max_runs)
+
+        time_start = time()
         println("-----------------------------------------")
         println("Starting run number: ", n)
         println("------------------------------------------")
@@ -416,7 +418,7 @@ function main()
         end
         n += 1
         println("-----------------------------------------")
-        println("time taken for iteration n = $(n-1) : $(time() - t00) seconds")
+        println("time taken for iteration n = $(n-1) : $(time() - time_start) seconds")
         println("-----------------------------------------")
 
         if !isnothing(neglogpostdiff) && abs(neglogpostdiff) < f_reltol_final
