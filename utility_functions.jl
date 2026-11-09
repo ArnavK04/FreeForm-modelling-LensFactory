@@ -359,8 +359,8 @@ function plot_image_scatter(model::LensModel.ModelConfig,
          # Matching observed images to predicted images
          for i in 1:n
             if isempty(pred_x)
-               push!(results, "MISSING")
-               continue
+                @warn "No predicted image left to match observed image $i (sid=$sid, kid=$kid)."
+                continue
             end
 
             # Calculate distances to all remaining candidates
@@ -491,8 +491,8 @@ function plot_magnification_scatter(model::LensModel.ModelConfig,
          # Matching observed images to predicted images
          for i in 1:n
             if isempty(pred_x)
-               push!(results, "MISSING")
-               continue
+                @warn "No predicted image left to match observed image $i (sid=$sid, kid=$kid)."
+                continue
             end
 
             # Calculate distances to all remaining candidates
