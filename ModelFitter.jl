@@ -73,6 +73,8 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
 
     t0 = time()
 
+    # setting things up for the optimizer
+
     global param_ref, reg_factor, prior_kappa, model, gridx, gridy, new_guess, full_kernel
 
     model = LensModel.read_input(input_file)
@@ -97,7 +99,6 @@ function run_optimizer(seed, input_file, pix, sigma, g_flag, inc_res, same_res, 
     if !isnothing(prevfile)
         filename = prevfile
     end
-
 
     # load prior from previous run converged map and refine to a finer grid
     if inc_res || same_res

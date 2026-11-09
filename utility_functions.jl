@@ -10,11 +10,17 @@ using LinearAlgebra
 using CairoMakie
 using Statistics
 
+"""
+    refine_map(map_coarse, gridx, gridy, new_grid_limx, new_grid_limy, resolution, order)
+ 
+Interpolate a coarse convergence map κ onto a finer grid.
+`order` selects the B-spline interpolation: 1 = linear, 2 = quadratic, 3 = cubic.
+The final grid has FOV = [2 * new_grid_limx, 2 * new_grid_limy] and the given `resolution`.
+ 
+Returns `(map_fine, x_fine, y_fine)`.
+"""
 function refine_map(map_coarse::M, gridx::M, gridy::M, new_grid_limx::T, new_grid_limy::T, resolution::T, order::Int) where {T <:RV, M <: ROA}
-    """
-    Uses Bicubic (now linear) interpolation to return a higher res map of the convergence κ.
-    The final grid will be have FOV = [2 * new_grid_limx,2 * new_grid_limy] and resolution = resolution.
-    """
+
     x_nodes = range(gridx[1, 1], stop=gridx[end, 1], length=size(gridx, 2))
     y_nodes = range(gridy[1, 1], stop=gridy[1, end], length=size(gridy, 1))
 
@@ -25,7 +31,7 @@ function refine_map(map_coarse::M, gridx::M, gridy::M, new_grid_limx::T, new_gri
     elseif order == 3
         itp = interpolate(map_coarse, BSpline(Cubic(Line(OnGrid()))))
     else
-        error("Unsupported interpolation order. upto cubic is allowed.")
+        error("Unsupported interpolation order $order. upto cubic(3) is allowed.")
     end
     
     itp = scale(itp, x_nodes, y_nodes)
@@ -38,10 +44,16 @@ function refine_map(map_coarse::M, gridx::M, gridy::M, new_grid_limx::T, new_gri
 
 end
 
+"""
+    coarsen_map(map_fine, gridx, gridy, new_grid_limx, new_grid_limy, factor)
+ 
+Downsample a convergence map κ by `factor` (block averaging), then re-interpolate
+(cubic) onto the grid defined by `new_grid_limx`, `new_grid_limy` and the coarse resolution.
+ 
+Returns `(coarse_map, coarse_x, coarse_y, new_res)`.
+"""
 function coarsen_map(map_fine::M, gridx::M, gridy::M, new_grid_limx::T, new_grid_limy::T, factor::Int) where {T <:RV, M <: ROA}
-    """
-    Returns a lower res map of the convergence κ downsampled by factor.
-    """
+
     original_res = gridx[2, 1] - gridx[1, 1]
     new_res = original_res * factor
 
@@ -73,10 +85,14 @@ function coarsen_map(map_fine::M, gridx::M, gridy::M, new_grid_limx::T, new_grid
     return coarse_map_, coarse_x_, coarse_y_, new_res
 end
 
+"""
+    load_fitsfile(filename)
+ 
+Load a FITS dataset and return the coordinate grids along with the κ, γ1, γ2 matrices:
+`(gridx, gridy, kappa, gamma1, gamma2)`.
+"""
 function load_fitsfile(filename::String)
-    """
-    Loads a FITS file and returns coordinate grid along with kappa, gamma1, gamma2 matrices.
-    """
+
     local gridx_fits, gridy_fits, kappa, gamma1, gamma2
 
     FITS("../$(filename)_data/kappa_z9_0.fits") do f
@@ -109,10 +125,13 @@ function load_fitsfile(filename::String)
     return gridx_fits[2:end, 2:end], gridy_fits[2:end, 2:end], kappa, gamma1, gamma2    # because the fits arrays are 2048, but grid_fits are 2049
 end
 
+"""
+    predict_image(lens, gridx, gridy, θx, θy, adis, sid, kid, images_obs, plot_flag, path, gridqty_tuple, kidqty_tuple)
+ 
+Predict image positions from the lens model. The source position is the
+magnification-squared-weighted barycenter of the back-projected observed images.
+"""
 function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θy::N, adis::T, sid::Int, kid::Int, images_obs, plot_flag::Bool, path, gridqty_tuple, kidqty_tuple) where {T <: RV, M <: ROA, N <: ROA}
-    """
-    Predicts the image positions based on the lens model and source positions.
-    """
 
     αx, αy = kidqty_tuple[2], kidqty_tuple[3]           # Get deflection angles from the tuple for images.
 
@@ -148,6 +167,14 @@ function predict_image(lens::Lenses.AbstractLens, gridx::M, gridy::M, θx::N, θ
     
 end
 
+"""
+    give_image_rmsscatter(model, lens, param_ref, gridx, gridy, plot_flag, path, thres, gridqty_tuple, imgqty_tuple)
+ 
+Compute the RMS image-position scatter over all sources and knots.
+Predicted images further than `thres` from their closest observed image are not counted.
+ 
+Returns `(rms, count, total_img)`.
+"""
 function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.AbstractLens, param_ref::Dict{Tuple{Symbol,Symbol},Float64}, gridx::M, gridy::M, plot_flag::Bool, path, thres::Float64, gridqty_tuple, imgqty_tuple) where {M <: ROA}
 
     adis = LensModel.LensModelUtils.adis_current(model, param_ref)
@@ -183,11 +210,12 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
             sum_rms += sum_rms_
             count += actual_count_
             total_img += obs_img_count
-            kid += 1
-            kid_global += 1
 
             println("$(sid), $(kid) has sum_rms = $(sum_rms_), count = $(actual_count_)/$(obs_img_count), rms = $(sqrt(sum_rms_/actual_count_))")
             println("------------------------------------------------------")
+            
+            kid += 1
+            kid_global += 1
         end
         sid += 1
         flush(stdout)
@@ -196,11 +224,16 @@ function give_image_rmsscatter(model::LensModel.ModelConfig, lens::Lenses.Abstra
     return sqrt(sum_rms / count), count, total_img
 end
 
+"""
+    give_sum_rms(images_pred, images_obs, threshold_distance)
+ 
+Sum of squared distances between each observed image and its closest predicted image.
+Handles false predictions since pairs are matched first. Pairs further apart than
+`threshold_distance` are skipped. Arguments are vectors of (x, y) tuples.
+ 
+Returns `(sum_rms, actual_count)`.
+"""
 function give_sum_rms(images_pred, images_obs, threshold_distance)
-    """
-    Computes rms between predicted and observed image positions. Can handle false predictions as well
-    since it matches the pairs first. The arguments are vectors of tuples of (x, y) positions.
-    """
 
     sum_rms = 0.0
     sum_chi2 = 0.0
@@ -624,6 +657,7 @@ function logprior_grad!(κ_vec::M, prior_kappa::N, reg_factor::T) where {M <: RO
 
 end
 
+# finite difference log likelihood grad. not being used now
 function loglikelihood_grad_fd!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, model::ModelConfig, param_ref::Dict{Tuple{Symbol, Symbol},Float64}, full_kernel::Vector{Vector{NTuple{6, Matrix{Float64}}}}) where {M <: ROA, N <: ROA}
     """
     Compute the gradient of log-likelihood wrt κ.
@@ -652,9 +686,8 @@ function loglikelihood_grad_fd!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, m
     return vec(ll_grad)
 end
 
-
 # --------------------------------------------------------------------------------------------------
-# Functions
+# Functions for analytic log likelihood grad
 # --------------------------------------------------------------------------------------------------
 @inline function _inverse(a11, a12, a21, a22)
    det = a11*a22 - a12*a21
@@ -834,6 +867,5 @@ function loglikelihood_grad!(κ_vec::M, prior_kappa::N, gridx::N, gridy::N, mode
     end
     return g ./ π
 end
-
 
 end
